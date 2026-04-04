@@ -1,0 +1,32 @@
+{
+  "name": "stock-analyzer-v4",
+  "version": "4.0.0",
+  "description": "四模組股票決策引擎 v4.0 - 全即時數據版",
+  "main": "stock_analyzer.html",
+  "scripts": {
+    "dev": "node local-server.js",
+    "start": "node local-server.js",
+    "dev:python": "python -m http.server 8080",
+    "build": "echo 'Static site - no build needed'"
+  },
+  "keywords": [
+    "stock analysis",
+    "stock market",
+    "investment",
+    "technical analysis",
+    "fundamental analysis",
+    "Kelly criterion"
+  ],
+  "author": "nteverysome",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nteverysome/stock-analyzer.git"
+  },
+  "type": "module",
+  "dependencies": {
+    "@neondatabase/serverless": "^1.0.2",
+    "dotenv": "^17.4.0",
+    "node-fetch": "^3.3.2"
+  }
+}

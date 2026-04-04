@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>Yahoo Finance 台股簡易測試</title>
+<style>
+body { font-family: monospace; padding: 20px; background: #f5f4ef; }
+.container { max-width: 900px; margin: 0 auto; }
+h1 { color: #378ADD; }
+.test-card { background: white; border: 1px solid #e8e6df; border-radius: 8px; padding: 15px; margin: 10px 0; }
+.ticker { font-size: 14px; font-weight: bold; color: #1a1a18; }
+.result { font-size: 12px; color: #888780; margin: 10px 0; }
+.success { color: #3B6D11; }
+.error { color: #A32D2D; }
+.info { background: #EAF3DE; padding: 10px; border-radius: 4px; margin: 10px 0; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="container">
+<h1>🇹🇼 Yahoo Finance 台股簡易測試</h1>
+<p style="color: #888780;">測試直接用後端代理抓取數據的可行性</p>
+
+<div id="results"></div>
+</div>
+
+<script>
+const stocks = [
+  '2330.TW', '2412.TW', '1101.TW', '2882.TW', '2308.TW',
+  '3008.TW', '2454.TW', '1216.TW', '2395.TW', '2603.TW'
+];
+
+// 簡單版本：直接用 fetch，看看能不能拿到基本數據
+async function testStock(ticker) {
+  const resultDiv = document.getElementById('results');
+  
+  const card = document.createElement('div');
+  card.className = 'test-card';
+  card.innerHTML = `<div class="ticker">${ticker} 測試中...</div>`;
+  resultDiv.appendChild(card);
+  
+  try {
+    // 方法 A：直接用 Yahoo Finance 股價頁面的 JSON
+    const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${ticker}`;
+    
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP Error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    const quoteData = data?.quoteResponse?.result?.[0];
+    
+    if (!quoteData) {
+      throw new Error('找不到報價數據');
+    }
+    
+    // 提取可用的字段
+    const fields = [
+      { key: 'symbol', name: '股票代碼' },
+      { key: 'shortName', name: '名稱' },
+      { key: 'regularMarketPrice', name: '現價' },
+      { key: 'regularMarketChange', name: '漲跌' },
+      { key: 'trailingPE', name: 'PE' },
+      { key: 'epsTrailingTwelveMonths', name: 'EPS' },
+      { key: 'marketCap', name: '市值' },
+      { key: 'fiftyTwoWeekHigh', name: '52W高' },
+      { key: 'fiftyTwoWeekLow', name: '52W低' }
+    ];
+    
+    let html = `<div class="ticker">${quoteData.symbol} — ${quoteData.shortName || '(名稱未知)'}</div>`;
+    html += '<div class="result">';
+    
+    for (const field of fields) {
+      const val = quoteData[field.key];
+      const hasVal = val !== null && val !== undefined;
+      const status = hasVal ? '✓' : '✗';
+      const color = hasVal ? 'success' : 'error';
+      
+      let displayVal = val;
+      if (typeof val === 'number') {
+        displayVal = val > 1000 ? (val / 1e9).toFixed(2) + 'B' : val.toFixed(2);
+      }
+      
+      html += `<div><span class="${color}">${status}</span> ${field.name}: ${displayVal || '(無)'}</div>`;
+    }
+    
+    html += '</div>';
+    card.innerHTML = html;
+    
+    // 檢查關鍵字段
+    const hasKey = !!quoteData.trailingPE;
+    if (!hasKey) {
+      card.innerHTML += '<div class="info">⚠️ 注意：PE 等關鍵字段缺失，可能需要其他數據源</div>';
+    }
+    
+  } catch (error) {
+    card.innerHTML = `
+      <div class="ticker">${ticker}</div>
+      <div class="result error">❌ 錯誤: ${error.message}</div>
+      <div style="font-size: 11px; color: #888780; margin-top: 10px;">
+        這可能表示：
+        <ul style="margin: 5px 0; padding-left: 20px;">
+          <li>Yahoo Finance 不支持台股代碼 ${ticker}</li>
+          <li>或 API 被限流</li>
+        </ul>
+      </div>
+    `;
+  }
+  
+  // 延遲，避免限流
+  await new Promise(r => setTimeout(r, 1000));
+}
+
+async function runAllTests() {
+  console.log('開始測試...');
+  for (const ticker of stocks) {
+    await testStock(ticker);
+  }
+  
+  const resultDiv = document.getElementById('results');
+  resultDiv.innerHTML += `
+    <div class="test-card info">
+      <strong>✅ 測試完成！</strong>
+      <p style="margin: 10px 0;">根據上面的結果，我們可以判斷：</p>
+      <ul style="margin: 10px 0; padding-left: 20px;">
+        <li>如果大部分有「PE」和「名稱」 → Yahoo Finance 支持台股</li>
+        <li>如果都報錯或缺數據 → 需要用台灣證交所 API</li>
+      </ul>
+    </div>
+  `;
+}
+
+window.addEventListener('load', runAllTests);
+</script>
+</body>
+</html>

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>台灣證交所即時報價 API 測試</title>
+<style>
+body { font-family: monospace; padding: 20px; background: #f5f4ef; }
+.container { max-width: 1000px; margin: 0 auto; }
+h1 { color: #378ADD; }
+.test-card { background: white; border: 1px solid #e8e6df; border-radius: 8px; padding: 15px; margin: 10px 0; }
+.ticker { font-size: 14px; font-weight: bold; color: #1a1a18; margin-bottom: 10px; }
+.field { display: grid; grid-template-columns: 120px 1fr 50px; gap: 10px; padding: 8px; border-bottom: 1px solid #f0ede6; font-size: 12px; }
+.field-name { color: #888780; font-weight: 600; }
+.field-value { color: #1a1a18; }
+.ok { color: #3B6D11; }
+.fail { color: #A32D2D; }
+.info { background: #EAF3DE; padding: 15px; border-radius: 8px; margin-top: 20px; }
+.conclusion { background: #FAEEDA; padding: 15px; border-radius: 8px; margin-top: 20px; color: #854F0B; }
+pre { background: #f0ede6; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 11px; }
+</style>
+</head>
+<body>
+<div class="container">
+<h1>🇹🇼 台灣證交所即時報價 API 測試</h1>
+<p style="color: #888780; margin-bottom: 20px;">直接調用即時報價 API，檢查數據可用性</p>
+
+<div id="results"></div>
+</div>
+
+<script>
+// 台灣證交所即時報價 API
+// 格式：https://www.twse.com.tw/rwd/zh/api/exchangeReport/FMTQIK?date=YYYYMMDD&response=json
+// 或使用股票代碼直接查詢
+
+async function fetchLivePrice(stockCode) {
+  const resultDiv = document.getElementById('results');
+  
+  const card = document.createElement('div');
+  card.className = 'test-card';
+  card.innerHTML = `<div class="ticker">${stockCode} 查詢中...</div>`;
+  resultDiv.appendChild(card);
+  
+  try {
+    // 方法 1：使用交易所的即時價格查詢
+    // 根據時間決定日期
+    const now = new Date();
+    const year = now.getFullYear() - 1911; // 民國年
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const dateStr = `${year}${month}${day}`;
+    
+    // API 端點（一天的所有成交資訊）
+    const url = `https://www.twse.com.tw/rwd/zh/api/exchangeReport/FMTQIK?date=${dateStr}&response=json`;
+    
+    console.log('嘗試 URL:', url);
+    
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    
+    const data = await response.json();
+    console.log('API 返回:', data);
+    
+    // 查找指定股票
+    const rows = data?.data || [];
+    const stock = rows.find(r => r[0]?.includes(stockCode));
+    
+    if (!stock) {
+      throw new Error(`在今日資料中找不到 ${stockCode}`);
+    }
+    
+    // 解析數據（格式因 API 而異，這裡做通用解析）
+    let html = `<div class="ticker">${stockCode}</div>`;
+    html += '<div>';
+    
+    // 顯示原始數據（用於除錯）
+    if (stock && stock.length > 0) {
+      html += `<div class="field">
+        <div class="field-name">原始數據</div>
+        <div class="field-value" style="font-size: 11px; word-break: break-all;">${stock.join(' | ')}</div>
+        <div class="ok">✓</div>
+      </div>`;
+    }
+    
+    html += '</div>';
+    card.innerHTML = html;
+    
+  } catch (error) {
+    card.innerHTML = `
+      <div class="ticker">${stockCode}</div>
+      <div style="color: #A32D2D; font-size: 12px; margin-top: 10px;">
+        ❌ 錯誤: ${error.message}
+      </div>
+      <div style="color: #888780; font-size: 11px; margin-top: 10px;">
+        <p>可能原因：</p>
+        <ul style="padding-left: 20px; margin: 5px 0;">
+          <li>交易所 API 格式複雜或有變更</li>
+          <li>非交易時間無數據</li>
+          <li>API 限制</li>
+        </ul>
+      </div>
+    `;
+  }
+  
+  await new Promise(r => setTimeout(r, 500));
+}
+
+// 另一個更簡單的方法：用台灣的免費股市 API
+async function testAlternativeAPI() {
+  const resultDiv = document.getElementById('results');
+  
+  const altCard = document.createElement('div');
+  altCard.className = 'test-card';
+  altCard.innerHTML = `<div class="ticker" style="color: #378ADD;">📡 嘗試替代 API...</div>`;
+  resultDiv.appendChild(altCard);
+  
+  try {
+    // 使用 TW Stock API（開源免費）
+    const url = 'https://api.finmindtrade.com/api/v4/stock/price?dataset=TaiwanStockPrice&data_id=2330&start_date=20240101';
+    
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    console.log('替代 API 返回:', data);
+    
+    if (data.data && data.data.length > 0) {
+      let html = `<div class="ticker">Finmind API 測試 ✓</div>`;
+      html += '<div style="font-size: 12px; color: #3B6D11;">';
+      html += `找到 ${data.data.length} 筆台積電歷史數據<br>`;
+      html += `最新數據日期: ${data.data[data.data.length - 1].date}<br>`;
+      html += `最新收盤價: ${data.data[data.data.length - 1].close}`;
+      html += '</div>';
+      altCard.innerHTML = html;
+    }
+  } catch (e) {
+    altCard.innerHTML = `
+      <div class="ticker" style="color: #854F0B;">📡 替代 API</div>
+      <div style="color: #A32D2D; font-size: 12px;">不可用: ${e.message}</div>
+    `;
+  }
+}
+
+async function runTests() {
+  const resultDiv = document.getElementById('results');
+  resultDiv.innerHTML = '';
+  
+  // 測試幾支股票
+  const stocks = ['2330', '1101', '2412'];
+  
+  for (const code of stocks) {
+    await fetchLivePrice(code);
+  }
+  
+  // 嘗試替代 API
+  await testAlternativeAPI();
+  
+  // 添加結論
+  resultDiv.innerHTML += `
+    <div class="conclusion">
+      <strong>📋 測試結論</strong>
+      <p style="margin: 10px 0;">
+        根據測試結果，台灣股市數據獲取的現實情況：
+      </p>
+      <ul style="margin: 10px 0; padding-left: 20px;">
+        <li><strong>即時股價</strong>：台灣證交所有官方 API，但格式複雜</li>
+        <li><strong>歷史數據</strong>：需要爬蟲或第三方 API（Finmind、TW Stock）</li>
+        <li><strong>基本面數據</strong>：需要爬蟲（Goodinfo、MoneyDJ）</li>
+        <li><strong>技術面數據</strong>：無官方來源，需自己計算或用第三方</li>
+      </ul>
+    </div>
+    
+    <div class="info">
+      <strong>🎯 建議實施方案</strong>
+      <p>台股數據 = Yahoo Finance（美股）+ 混合方案（台股）</p>
+      <p style="margin-top: 10px;">
+        <strong>美股保持現狀：</strong> Yahoo Finance（完全可用）
+      </p>
+      <p style="margin-top: 10px;">
+        <strong>台股新增方案：</strong>
+      </p>
+      <ul style="margin: 10px 0; padding-left: 20px;">
+        <li>① <strong>股價</strong>：台灣證交所 API / Finmind API</li>
+        <li>② <strong>基本面</strong>：爬蟲 Goodinfo 或用 Finmind</li>
+        <li>③ <strong>技術面</strong>：自己計算 RSI/MACD 或用第三方</li>
+      </ul>
+    </div>
+  `;
+}
+
+window.addEventListener('load', runTests);
+</script>
+</body>
+</html>

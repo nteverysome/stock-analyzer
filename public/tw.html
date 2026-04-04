@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>台灣股票分析</title>
+<style>
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #333; padding: 20px; }
+.container { max-width: 1200px; margin: 0 auto; }
+h1 { margin-bottom: 20px; }
+.search { margin-bottom: 20px; }
+.search input { padding: 12px; width: 100%; max-width: 400px; border: 1px solid #ddd; border-radius: 6px; }
+.stocks { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; }
+.card { background: white; padding: 16px; border-radius: 8px; border: 1px solid #ddd; cursor: pointer; }
+.card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+.symbol { font-size: 18px; font-weight: bold; }
+.name { color: #666; margin-top: 4px; }
+.sector { font-size: 12px; color: #999; margin-top: 8px; background: #f9f9f9; padding: 4px 8px; border-radius: 4px; display: inline-block; }
+.loading { text-align: center; padding: 40px; }
+.msg { padding: 15px; border-radius: 6px; margin-bottom: 15px; }
+.msg.ok { background: #efe; color: #3c3; }
+.msg.err { background: #fee; color: #c33; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>📊 台灣股票分析</h1>
+  <div id="msg"></div>
+  <div class="search">
+    <input type="text" id="search" placeholder="搜尋股票代號或名稱">
+  </div>
+  <div id="stocks" class="stocks">
+    <div class="loading">加載中...</div>
+  </div>
+</div>
+
+<script>
+let allStocks = [];
+
+async function init() {
+  try {
+    const res = await fetch('/api/stocks');
+    const data = await res.json();
+    if (data.success) {
+      allStocks = data.stocks || [];
+      render(allStocks);
+      showMsg(`✅ 加載 ${allStocks.length} 隻股票`, 'ok');
+    } else {
+      showMsg('❌ 加載失敗：' + data.message, 'err');
+    }
+  } catch (err) {
+    showMsg('❌ 錯誤：' + err.message, 'err');
+  }
+}
+
+function render(stocks) {
+  const html = stocks.map(s => `
+    <div class="card">
+      <div class="symbol">${s.symbol}</div>
+      <div class="name">${s.name}</div>
+      <div class="sector">${s.sector || '其他'}</div>
+    </div>
+  `).join('');
+  document.getElementById('stocks').innerHTML = html || '<div class="loading">未找到股票</div>';
+}
+
+document.getElementById('search').addEventListener('input', (e) => {
+  const kw = e.target.value.toLowerCase();
+  const filtered = allStocks.filter(s => s.symbol.includes(kw) || s.name.includes(kw));
+  render(filtered);
+});
+
+function showMsg(msg, type) {
+  const el = document.getElementById('msg');
+  el.className = 'msg ' + type;
+  el.textContent = msg;
+}
+
+init();
+</script>
+</body>
+</html>

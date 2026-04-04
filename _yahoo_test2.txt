@@ -1,0 +1,19 @@
+=== Approach 1: v8 chart ===
+v8 chart status: 200
+v8 chart body: {"chart":{"result":[{"meta":{"currency":"USD","symbol":"AAPL","exchangeName":"NMS","fullExchangeName":"NasdaqGS","instrumentType":"EQUITY","firstTradeDate":345479400,"regularMarketTime":1775160000,"hasPrePostMarketData":true,"gmtoffset":-14400,"timezone":"EDT","exchangeTimezoneName":"America/New_Yor
+
+=== Approach 2: trending ===
+trending status: 200
+trending body: {"finance":{"result":[{"count":20,"quotes":[{"symbol":"BTC-USD"},{"symbol":"CL=F"},{"symbol":"TSLA"},{"symbol":"^GSPC"},{"symbol":"^IXIC"},{"symbol":"^DJI"},{"symbol":"GC=F"},{"symbol":"ETH-USD"},{"symbol":"BZ=F"},{"symbol":"XRP-USD"},{"symbol":"LUV"},{"symbol":"UAL"},{"symbol":"NTNX"},{"symbol":"^RUT"},{"symbol":"RIG"},{"symbol":"SBAC"},{"symbol":"SOL-USD"},{"symbol":"PLUG"},{"symbol":"TER"},{"symbol":"ALGN"}],"jobTimestamp":1775222121389,"startInterval":202604031200}],"error":null}}
+
+=== Approach 3: YF screener predefined ===
+predefined status: 200
+predefined body: {"finance":{"result":[{"id":"437465ef-980e-4d8c-a860-de7cbfbab373","title":"Most Actives","description":"Discover the most traded equities in the trading day.","canonicalName":"MOST_ACTIVES","criteriaMeta":{"size":10,"offset":0,"sortField":"dayvolume","sortType":"DESC","quoteType":"EQUITY","includeFields":["change_in_number_of_institutional_holders","trading_central_last_close_price_to_fair_value","intradaypricechange","estimated_revenue_growth","intradaymarketcap","morningstar_previous_rating",
+
+=== Approach 4: v6 quote ===
+v6 quote status: 404
+v6 quote body: {"finance":{"result":null,"error":{"code":"Not Found","description":"HTTP 404 Not Found"}}}
+
+=== Approach 5: v7 quote ===
+v7 quote status: 401
+v7 quote body: {"finance":{"result":null,"error":{"code":"Unauthorized","description":"User is unable to access this feature - https://bit.ly/yahoo-finance-api-feedback"}}}

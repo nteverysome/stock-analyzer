@@ -1,0 +1,45 @@
+{
+  "buildCommand": "echo 'Static site with serverless functions'",
+  "outputDirectory": "public",
+  "functions": {
+    "api/proxy.js": {
+      "maxDuration": 30,
+      "memory": 1024
+    },
+    "api/fundamentals.js": {
+      "maxDuration": 30,
+      "memory": 1024
+    },
+    "api/claude.js": {
+      "maxDuration": 30,
+      "memory": 1024
+    },
+    "api/etf-fundamentals.js": {
+      "maxDuration": 30,
+      "memory": 1024
+    },
+    "api/screener.js": {
+      "maxDuration": 60,
+      "memory": 1024
+    },
+    "api/stocks.js": {
+      "maxDuration": 30,
+      "memory": 1024
+    },
+    "api/stock-detail.js": {
+      "maxDuration": 30,
+      "memory": 1024
+    }
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        }
+      ]
+    }
+  ]
+}

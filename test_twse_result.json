@@ -1,0 +1,28 @@
+{
+  "taiwan": {
+    "status": 200,
+    "total": 189,
+    "returned": 10,
+    "source": "tw-fallback",
+    "symbols": [
+      "2330.TW",
+      "2317.TW",
+      "2454.TW",
+      "2308.TW",
+      "2382.TW"
+    ]
+  },
+  "usa": {
+    "status": 200,
+    "total": 376,
+    "returned": 10,
+    "source": "yahoo-live",
+    "symbols": [
+      "NVDA",
+      "INTC",
+      "NOK",
+      "PLUG",
+      "TSLA"
+    ]
+  }
+}

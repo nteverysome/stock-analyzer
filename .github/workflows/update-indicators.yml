@@ -1,0 +1,62 @@
+name: 🌙 Daily Market Data Update
+
+on:
+  schedule:
+    # 每晚 23:00（台灣時間，UTC+8）執行
+    # cron: '分 時 日 月 周' (UTC 時間)
+    # 台灣時間 23:00 = UTC 時間 15:00
+    - cron: '0 15 * * *'
+  
+  # 允許手動觸發（用於測試）
+  workflow_dispatch:
+
+jobs:
+  update-indicators:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout 代碼
+        uses: actions/checkout@v3
+
+      - name: 🔧 設置 Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: 📦 安裝依賴
+        run: |
+          npm install @upstash/redis node-fetch
+
+      - name: 🚀 執行指標更新
+        env:
+          UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+        run: |
+          node scripts/update-indicators.js
+
+      - name: 📊 推送更新通知
+        if: always()
+        run: |
+          echo "✅ 指標更新完成"
+          echo "時間: $(date)"
+
+      # 可選：將結果推送到 Slack 或其他通知服務
+      # - name: 🔔 Slack 通知
+      #   if: failure()
+      #   uses: slackapi/slack-github-action@v1
+      #   with:
+      #     webhook-url: ${{ secrets.SLACK_WEBHOOK }}
+
+---
+
+# 額外選項：如果要在 Vercel 上運行（不需要 GitHub Actions）
+
+# 在 vercel.json 中添加：
+# {
+#   "crons": [{
+#     "path": "/api/cron/update-indicators",
+#     "schedule": "0 23 * * *"
+#   }]
+# }
+
+# 然後在 api/cron/update-indicators.js 中實現相同邏輯

@@ -1,0 +1,50 @@
+# 環境變數 - 永遠不要提交
+.env
+.env.local
+.env.*.local
+
+# API Keys 和敏感憑證
+*.key
+*.pem
+*.p12
+api_key*
+secret*
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Node
+node_modules/
+package-lock.json
+yarn.lock
+
+# 構建輸出
+dist/
+build/
+*.min.js
+*.min.css
+
+# 日誌
+*.log
+logs/
+
+# 系統文件
+Thumbs.db
+.DS_Store
+
+.vercel
+.env*.local
+
+# 本地腳本和臨時文件
+*.mjs
+*-output.txt
+*-output.log
+tpex-sample.json
+test_*.html
+test_*.json
+test_*.js

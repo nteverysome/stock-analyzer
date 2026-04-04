@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Test Vercel API</title>
+<style>
+  body { font-family: monospace; padding: 20px; background: #f5f5f5; }
+  .test { background: white; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #378ADD; }
+  .ticker { font-weight: bold; color: #378ADD; }
+  .value { color: #639922; }
+  .error { color: #E24B4A; }
+</style>
+</head>
+<body>
+<h1>Vercel API 诊断工具</h1>
+<p>此页面测试 /api/fundamentals 端点的实际返回值</p>
+
+<div id="results"></div>
+
+<script>
+async function testTicker(ticker) {
+  const div = document.createElement('div');
+  div.className = 'test';
+  div.innerHTML = `<div class="ticker">Testing ${ticker}...</div>`;
+  document.getElementById('results').appendChild(div);
+
+  try {
+    const resp = await fetch('/api/fundamentals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ticker })
+    });
+
+    const data = await resp.json();
+    
+    div.innerHTML = `
+      <div class="ticker">${ticker}</div>
+      <div>trailingPE: <span class="value">${data.trailingPE}</span></div>
+      <div>forwardPE: <span class="value">${data.forwardPE}</span></div>
+      <div>pegRatio: <span class="value">${data.pegRatio}</span></div>
+      <div>grossMargins: <span class="value">${data.grossMargins}</span></div>
+      <div style="font-size: 11px; color: #888; margin-top: 10px;">Raw: ${JSON.stringify(data).substring(0, 150)}...</div>
+    `;
+  } catch(e) {
+    div.innerHTML = `<div class="ticker">${ticker}</div><div class="error">Error: ${e.message}</div>`;
+  }
+}
+
+// 测试多个股票
+testTicker('MSFT');
+setTimeout(() => testTicker('META'), 500);
+setTimeout(() => testTicker('NVDA'), 1000);
+setTimeout(() => testTicker('AAPL'), 1500);
+</script>
+</body>
+</html>
+

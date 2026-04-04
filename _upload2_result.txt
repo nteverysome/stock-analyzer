@@ -1,0 +1,1 @@
+vercel.json: {"ok":true,"sha":"f54c1b00bc8f3c7905747aa5e4a4b2a0dc1f19c4","msg":"feat: add screener.js config to vercel.json for v5.0"}

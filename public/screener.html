@@ -1,0 +1,1312 @@
+
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>主動篩選器 — 全市場掃描引擎 v5.0</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;background:#f5f4ef;color:#1a1a18;min-height:100vh;}
+.wrap{max-width:880px;margin:0 auto;padding:20px 14px;}
+h1{font-size:17px;font-weight:600;margin-bottom:2px;}
+.sub{font-size:11px;color:#888780;margin-bottom:12px;}
+a{color:#378ADD;text-decoration:none;}
+a:hover{text-decoration:underline;}
+/* ── Tabs */
+.tabs{display:flex;gap:0;border-bottom:2px solid #e8e6df;margin-bottom:16px;}
+.tab{padding:9px 18px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid transparent;border-bottom:none;border-radius:7px 7px 0 0;color:#888780;background:transparent;transition:all .15s;}
+.tab:hover{color:#1a1a18;background:#fff;}
+.tab.active{color:#1a1a18;background:#fff;border-color:#e8e6df;margin-bottom:-2px;border-bottom:2px solid #fff;}
+.tab-body{display:none;}
+.tab-body.active{display:block;}
+/* ── Cards */
+.card{background:#fff;border:1px solid #e8e6df;border-radius:11px;padding:14px;margin-bottom:10px;}
+.card-hd{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.card-tk{font-size:15px;font-weight:700;min-width:55px;}
+.card-info{flex:1;}
+.card-name{font-size:13px;font-weight:600;}
+.card-meta{font-size:10px;color:#888780;}
+.card-score{text-align:right;}
+.card-score-num{font-size:24px;font-weight:700;line-height:1;}
+.card-score-lbl{font-size:9px;color:#888780;}
+/* ── Module bars */
+.mod-bars{display:flex;flex-direction:column;gap:4px;margin-bottom:10px;}
+.mod-bar{display:flex;align-items:center;gap:8px;font-size:10px;}
+.mod-bar-lbl{width:70px;color:#888780;text-align:right;flex-shrink:0;}
+.mod-bar-track{flex:1;height:6px;background:#f0ede6;border-radius:3px;overflow:hidden;}
+.mod-bar-fill{height:6px;border-radius:3px;transition:width .5s;}
+.mod-bar-val{width:28px;font-weight:700;text-align:right;flex-shrink:0;}
+/* ── Tags */
+.tags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;}
+.tag{font-size:10px;padding:3px 8px;border-radius:12px;font-weight:600;}
+.tg{background:#EAF3DE;color:#3B6D11;}.to{background:#FAEEDA;color:#854F0B;}
+.tr{background:#FCEBEB;color:#A32D2D;}.tb{background:#E6F1FB;color:#185FA5;}
+/* ── Narrative box */
+.narr{background:#f9f8f4;border:1px solid #e8e6df;border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.7;color:#3B3B39;margin-bottom:6px;}
+.narr strong{color:#1a1a18;}
+/* ── Watchlist editor */
+.wl-cats{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:14px;}
+.wl-cat{background:#fff;border:1px solid #e8e6df;border-radius:9px;padding:10px 12px;}
+.wl-cat-t{font-size:11px;font-weight:700;margin-bottom:6px;}
+.wl-items{display:flex;flex-wrap:wrap;gap:4px;}
+.wl-chip{font-size:11px;padding:3px 8px;border-radius:12px;background:#f5f4ef;cursor:pointer;border:1px solid #e8e6df;transition:all .15s;display:inline-flex;align-items:center;gap:4px;position:relative;}
+.wl-chip.on{background:#E6F1FB;border-color:#378ADD;color:#185FA5;}
+.wl-chip:hover{border-color:#378ADD;}
+.wl-chip-del{font-size:10px;color:#888780;cursor:pointer;display:none;margin-left:2px;flex-shrink:0;user-select:none;}
+.wl-chip:hover .wl-chip-del{display:inline;}
+.wl-chip.custom .wl-chip-del{display:inline;}
+/* ── Scan progress */
+.scan-prog{background:#fff;border:1px solid #e8e6df;border-radius:10px;padding:14px;margin-bottom:12px;}
+.scan-layers{display:flex;flex-direction:column;gap:8px;}
+.scan-layer{display:flex;align-items:center;gap:10px;font-size:11px;}
+.scan-dot{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;border:2px solid #e8e6df;background:#fff;color:#888780;}
+.scan-dot.pass{border-color:#639922;color:#fff;background:#639922;}
+.scan-dot.fail{border-color:#E24B4A;color:#fff;background:#E24B4A;}
+.scan-dot.run{border-color:#378ADD;color:#378ADD;background:#E6F1FB;animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.5;}}
+.scan-txt{flex:1;}.scan-badge{font-size:10px;font-weight:600;padding:2px 8px;border-radius:12px;}
+/* ── Watchlist result list */
+.wl-result{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid #f0ede6;font-size:12px;}
+.wl-result:last-child{border:none;}
+.wl-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.wl-tk{font-weight:700;min-width:55px;}
+.wl-desc{flex:1;color:#5f5e5a;font-size:11px;}
+.wl-sc{font-weight:700;min-width:30px;text-align:right;}
+.wl-act{font-size:9px;padding:2px 6px;border-radius:4px;font-weight:600;}
+/* ── Portfolio tracking */
+.port-row{background:#fff;border:1px solid #e8e6df;border-radius:9px;padding:12px;margin-bottom:8px;}
+.port-hd{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.port-tk{font-size:14px;font-weight:700;}
+.port-date{font-size:10px;color:#888780;}
+.port-checks{display:flex;flex-direction:column;gap:4px;}
+.port-chk{display:flex;align-items:center;gap:6px;font-size:11px;}
+.port-chk-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+/* ── Scenario messaging */
+.scenario{background:#fff;border:1px solid #e8e6df;border-radius:10px;padding:14px;margin-bottom:12px;}
+.scenario-t{font-size:13px;font-weight:700;margin-bottom:6px;}
+.scenario-body{font-size:12px;line-height:1.8;color:#5f5e5a;background:#f9f8f4;border-radius:7px;padding:10px 12px;}
+.scenario-body strong{color:#1a1a18;}
+/* ── Correct/wrong examples */
+.example-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+@media(max-width:540px){.example-row{grid-template-columns:1fr;}}
+.ex-ok{background:#EAF3DE;border:1px solid #97C459;border-radius:9px;padding:10px 12px;}
+.ex-ok .ex-t{color:#3B6D11;font-size:11px;font-weight:700;margin-bottom:4px;}
+.ex-bad{background:#FCEBEB;border:1px solid #E24B4A;border-radius:9px;padding:10px 12px;}
+.ex-bad .ex-t{color:#A32D2D;font-size:11px;font-weight:700;margin-bottom:4px;}
+.ex-body{font-size:11px;line-height:1.6;}
+/* ── Flow steps */
+.flow-steps{display:flex;flex-direction:column;gap:12px;margin-bottom:14px;}
+.flow-step{display:flex;gap:12px;align-items:flex-start;}
+.flow-num{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;}
+.flow-content{flex:1;}
+.flow-content h3{font-size:13px;font-weight:700;margin-bottom:3px;}
+.flow-content p{font-size:11px;color:#5f5e5a;line-height:1.6;}
+/* ── Principles */
+.principles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
+@media(max-width:540px){.principles{grid-template-columns:1fr;}}
+.principle{background:#fff;border:1px solid #e8e6df;border-radius:9px;padding:12px;}
+.principle h4{font-size:12px;font-weight:700;margin-bottom:4px;}
+.principle p{font-size:11px;color:#5f5e5a;line-height:1.5;}
+/* ── Buttons */
+.btn{padding:10px 24px;font-size:13px;font-weight:600;border:none;border-radius:10px;cursor:pointer;transition:all .15s;}
+.btn-primary{background:#1a1a18;color:#fff;}.btn-primary:hover{background:#333;}
+.btn-secondary{background:#f5f4ef;color:#1a1a18;border:1px solid #d3d1c7;}.btn-secondary:hover{background:#e8e6df;}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+/* ── Settings */
+.settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;margin-bottom:14px;}
+@media(max-width:540px){.settings-grid{grid-template-columns:1fr;}}
+.setting{display:flex;align-items:center;gap:6px;font-size:11px;padding:6px 10px;background:#fff;border:1px solid #e8e6df;border-radius:8px;transition:all .15s;}
+.setting.disabled{opacity:.4;}
+.setting input[type=checkbox]{width:14px;height:14px;accent-color:#378ADD;cursor:pointer;flex-shrink:0;}
+.setting label{color:#888780;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+.setting input[type=number]{width:52px;padding:3px 5px;border:1px solid #d3d1c7;border-radius:6px;font-size:12px;text-align:center;}
+.setting select{padding:3px 5px;border:1px solid #d3d1c7;border-radius:6px;font-size:11px;background:#fff;cursor:pointer;}
+.setting .combo{display:flex;align-items:center;gap:4px;}
+.vr-group{grid-column:1/-1;padding:8px 10px;background:#fff;border:1px solid #e8e6df;border-radius:8px;}
+.vr-group-t{font-size:10px;font-weight:600;color:#888780;margin-bottom:6px;letter-spacing:.04em;}
+.vr-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+.vr-item{display:flex;align-items:center;gap:5px;font-size:11px;padding:4px 8px;background:#f9f8f4;border:1px solid #f0ede6;border-radius:6px;}
+.vr-item.disabled{opacity:.4;}
+.vr-item input[type=checkbox]{width:13px;height:13px;accent-color:#378ADD;cursor:pointer;}
+.vr-item label{color:#5f5e5a;cursor:pointer;font-weight:600;min-width:18px;}
+.vr-item select{padding:2px 4px;border:1px solid #d3d1c7;border-radius:5px;font-size:11px;background:#fff;}
+.vr-item input[type=number]{width:52px;padding:2px 4px;border:1px solid #d3d1c7;border-radius:5px;font-size:11px;text-align:center;}
+/* ── Section titles */
+.sec-t{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:#888780;margin-bottom:8px;}
+/* ── Misc */
+.note{font-size:10px;color:#888780;text-align:center;padding:10px 0 4px;line-height:1.7;}
+.back-link{font-size:11px;margin-bottom:10px;display:block;}
+.empty-msg{text-align:center;padding:30px;color:#888780;font-size:12px;}
+.hidden{display:none;}
+/* ── Scan Mode Selector */
+.scan-mode-bar{display:flex;gap:0;background:#e8e6df;border-radius:10px;padding:3px;margin-bottom:14px;}
+.scan-mode-btn{flex:1;padding:9px 12px;font-size:12px;font-weight:600;text-align:center;border:none;border-radius:8px;cursor:pointer;background:transparent;color:#888780;transition:all .2s;}
+.scan-mode-btn.active{background:#fff;color:#1a1a18;box-shadow:0 1px 3px rgba(0,0,0,.1);}
+.scan-mode-btn:hover:not(.active){color:#1a1a18;}
+/* ── Market Selector */
+.market-sel{display:flex;gap:8px;margin-bottom:14px;}
+.market-chip{padding:8px 18px;font-size:12px;font-weight:600;border:2px solid #e8e6df;border-radius:10px;cursor:pointer;background:#fff;color:#888780;transition:all .2s;display:flex;align-items:center;gap:6px;}
+.market-chip.active{border-color:#378ADD;color:#185FA5;background:#E6F1FB;}
+.market-chip:hover:not(.active){border-color:#378ADD;color:#378ADD;}
+.market-chip .flag{font-size:16px;}
+.market-stats{font-size:10px;color:#888780;margin-bottom:14px;padding:6px 12px;background:#f9f8f4;border-radius:8px;}
+.scan-batch-info{font-size:11px;color:#5f5e5a;padding:8px 12px;background:#FAEEDA;border:1px solid #EF9F27;border-radius:8px;margin-bottom:12px;display:none;}
+.scan-batch-info.show{display:block;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a href="/" class="back-link">← 返回個股分析</a>
+  <h1>主動篩選器 v5.0</h1>
+  <p class="sub">全市場掃描引擎 — 掃描全美股＆台股，找出最佳進場機會</p>
+
+  <!-- ── Tab bar -->
+  <div class="tabs" id="tabs">
+    <div class="tab active" data-tab="funnel">篩選器架構</div>
+    <div class="tab" data-tab="cards">標的卡片設計</div>
+    <div class="tab" data-tab="speech">話術設計</div>
+    <div class="tab" data-tab="flow">完整流程</div>
+  </div>
+
+  <!-- ══════════ TAB 1: 篩選器架構 ══════════ -->
+  <div class="tab-body active" id="tab-funnel">
+
+    <!-- 掃描模式選擇 -->
+    <p class="sec-t">掃描模式</p>
+    <div class="scan-mode-bar">
+      <div class="scan-mode-btn active" data-mode="watchlist" onclick="setScanMode('watchlist')">📋 觀察清單掃描</div>
+      <div class="scan-mode-btn" data-mode="fullmarket" onclick="setScanMode('fullmarket')">🌐 全市場掃描</div>
+    </div>
+
+    <!-- 市場選擇（全市場模式顯示） -->
+    <div id="market-selector" class="hidden">
+      <p class="sec-t">選擇市場</p>
+      <div class="market-sel">
+        <div class="market-chip active" data-market="us" onclick="toggleMarket('us',this)"><span class="flag">🇺🇸</span> 美股全市場</div>
+        <div class="market-chip" data-market="tw" onclick="toggleMarket('tw',this)"><span class="flag">🇹🇼</span> 台股全市場</div>
+      </div>
+      <div class="market-stats" id="market-stats">選擇市場後開始掃描，系統將自動從 Yahoo Finance 拉取市值前 500 大股票進行四層漏斗篩選。</div>
+      <div class="scan-batch-info" id="scan-batch-info">
+        ⚡ 全市場掃描會分批處理（每批 5 支），預計需要 2–5 分鐘。掃描期間請勿關閉頁面。
+      </div>
+    </div>
+
+    <p class="sec-t">篩選漏斗：四層過濾，逐步縮小候選名單</p>
+
+    <!-- Layer 0: Watchlist -->
+    <div class="card" id="layer0-card">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <div class="flow-num" style="background:#888780;width:26px;height:26px;font-size:11px;">0</div>
+        <div><strong style="font-size:12px;">起點：<span id="layer0-title">觀察清單（Watchlist）</span></strong></div>
+      </div>
+      <p style="font-size:11px;color:#5f5e5a;margin-bottom:10px;" id="layer0-desc">預設 50–100 支股票，涵蓋不同行業。用戶可自訂新增。每次掃描從這裡出發。</p>
+      <p style="font-size:10px;color:#888780;" id="layer0-hint">建議：科技 20支、金融 10支、消費 10支、醫療 10支</p>
+    </div>
+
+    <!-- Layer 1: Macro -->
+    <div class="card" style="border-left:3px solid #EF9F27;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <div class="flow-num" style="background:#EF9F27;width:26px;height:26px;font-size:11px;">1</div>
+        <div><strong style="font-size:12px;">第一層過濾：宏觀門檻（模組一）</strong></div>
+      </div>
+      <p style="font-size:11px;color:#5f5e5a;margin-bottom:6px;">先確認現在「獵場開放」。若宏觀環境不允許（Risk-off、信用危機），整個掃描暫停，告訴用戶「現在不是出手的時機」。</p>
+      <p style="font-size:11px;"><strong>通過條件：</strong>恐懼貪婪 ≤ 45 或 VIX ≥ 20（有恐懼才有機會）</p>
+      <p style="font-size:10px;color:#888780;margin-top:4px;">若未通過 → 告知用戶當前環境，停止掃描</p>
+    </div>
+
+    <!-- Layer 2: Valuation -->
+    <div class="card" style="border-left:3px solid #378ADD;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <div class="flow-num" style="background:#378ADD;width:26px;height:26px;font-size:11px;">2</div>
+        <div><strong style="font-size:12px;">第二層過濾：估值門檻（模組二）</strong></div>
+      </div>
+      <p style="font-size:11px;color:#5f5e5a;margin-bottom:6px;">快速篩出「可能被低估」的股票。用最快的兩個指標做初篩，不需要完整分析。</p>
+      <p style="font-size:11px;"><strong>通過條件：</strong>PEG ≤ 2.0 且 上行空間 ≥ 15%（分析師目標 vs 現價）</p>
+      <p style="font-size:10px;color:#888780;margin-top:4px;">預期：100支 → 篩出 20–30支</p>
+    </div>
+
+    <!-- Layer 3: Technical -->
+    <div class="card" style="border-left:3px solid #639922;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <div class="flow-num" style="background:#639922;width:26px;height:26px;font-size:11px;">3</div>
+        <div><strong style="font-size:12px;">第三層過濾：技術門檻（模組三）</strong></div>
+      </div>
+      <p style="font-size:11px;color:#5f5e5a;margin-bottom:6px;">確認賣壓快耗盡、時機合適。只對第二層通過的股票計算 RSI。</p>
+      <p style="font-size:11px;"><strong>通過條件：</strong>RSI(14) ≤ 40（偏低或超賣）</p>
+      <p style="font-size:10px;color:#888780;margin-top:4px;">預期：20–30支 → 篩出 5–10支</p>
+    </div>
+
+    <!-- Layer 4: Full scoring -->
+    <div class="card" style="border-left:3px solid #3C3489;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <div class="flow-num" style="background:#3C3489;width:26px;height:26px;font-size:11px;">4</div>
+        <div><strong style="font-size:12px;">第四層：完整四模組評分</strong></div>
+      </div>
+      <p style="font-size:11px;color:#5f5e5a;margin-bottom:6px;">只對進入決賽圈的 5–10 支做完整分析，計算凱利倉位、R:R、出場規劃。按總分排序輸出給用戶。</p>
+      <p style="font-size:10px;color:#888780;margin-top:4px;">輸出：最多 5 個「進場機會」</p>
+    </div>
+
+    <!-- Default watchlist categories -->
+    <p class="sec-t" style="margin-top:16px;">觀察清單預設分類</p>
+    <div class="wl-cats">
+      <div class="wl-cat"><div class="wl-cat-t">🇺🇸 科技護城河</div><div class="wl-items" id="wl-tech"></div></div>
+      <div class="wl-cat"><div class="wl-cat-t">🇺🇸 消費護城河</div><div class="wl-items" id="wl-consumer"></div></div>
+      <div class="wl-cat"><div class="wl-cat-t">🇺🇸 金融 / 醫療</div><div class="wl-items" id="wl-fin"></div></div>
+      <div class="wl-cat"><div class="wl-cat-t">🇹🇼 台股精選</div><div class="wl-items" id="wl-tw"></div></div>
+      <div class="wl-cat"><div class="wl-cat-t">🇹🇼 台股科技</div><div class="wl-items" id="wl-tw-tech"></div></div>
+      <div class="wl-cat"><div class="wl-cat-t">🇹🇼 台股金融</div><div class="wl-items" id="wl-tw-fin"></div></div>
+      <div class="wl-cat"><div class="wl-cat-t">自訂代碼 ✏️</div><div class="wl-items" id="wl-custom"></div></div>
+    </div>
+
+    <!-- Custom add -->
+    <div style="display:flex;gap:8px;margin-bottom:14px;">
+      <input type="text" id="wl-add-input" placeholder="手動新增代號（美股: TSLA、台股: 2330.TW）" style="flex:1;padding:8px 12px;font-size:12px;border:1px solid #d3d1c7;border-radius:8px;outline:none;">
+      <button class="btn btn-secondary" onclick="addCustomWatchlist()">新增</button>
+    </div>
+
+    <!-- Settings -->
+    <p class="sec-t">篩選門檻設定（可選 · 勾選啟用）</p>
+    <div class="settings-grid">
+      <div class="setting" id="wrap-score">
+        <input type="checkbox" id="chk-score" checked onchange="toggleSetting('score')">
+        <label for="chk-score">進場最低分數</label>
+        <input type="number" id="set-min-score" value="65" min="0" max="100">
+      </div>
+      <div class="setting" id="wrap-rsi">
+        <input type="checkbox" id="chk-rsi" checked onchange="toggleSetting('rsi')">
+        <label for="chk-rsi">RSI 門檻 ≤</label>
+        <input type="number" id="set-rsi" value="40" min="10" max="70">
+      </div>
+      <div class="setting" id="wrap-upside">
+        <input type="checkbox" id="chk-upside" checked onchange="toggleSetting('upside')">
+        <label for="chk-upside">最小上行空間 %</label>
+        <input type="number" id="set-upside" value="15" min="5" max="50">
+      </div>
+      <div class="setting" id="wrap-peg">
+        <input type="checkbox" id="chk-peg" checked onchange="toggleSetting('peg')">
+        <label for="chk-peg">PEG 上限 ≤</label>
+        <input type="number" id="set-peg" value="2" min="0.5" max="5" step="0.5">
+      </div>
+
+      <!-- VR 量比篩選 -->
+      <div class="vr-group">
+        <div class="vr-group-t">📊 VR 量比篩選（多時間框架）</div>
+        <div class="vr-row">
+          <div class="vr-item" id="wrap-vr-d">
+            <input type="checkbox" id="chk-vr-d" onchange="toggleVR('d')">
+            <label for="chk-vr-d">日</label>
+            <select id="sel-vr-d" onchange="syncVRInput('d')">
+              <option value="">-- 選擇 --</option>
+              <option value="1000">≥ 1000（頂部極端）</option>
+              <option value="200-1000">200–1000（正常偏高）</option>
+              <option value="0" selected>≤ 0.1（底部極端）</option>
+            </select>
+            <span style="font-size:10px;color:#888780;">或</span>
+            <input type="number" id="inp-vr-d" placeholder="自訂" min="0" step="0.1" onchange="syncVRSelect('d')">
+          </div>
+          <div class="vr-item" id="wrap-vr-w">
+            <input type="checkbox" id="chk-vr-w" onchange="toggleVR('w')">
+            <label for="chk-vr-w">週</label>
+            <select id="sel-vr-w" onchange="syncVRInput('w')">
+              <option value="">-- 選擇 --</option>
+              <option value="1000">≥ 1000（頂部極端）</option>
+              <option value="200-1000">200–1000（正常偏高）</option>
+              <option value="0" selected>≤ 0.1（底部極端）</option>
+            </select>
+            <span style="font-size:10px;color:#888780;">或</span>
+            <input type="number" id="inp-vr-w" placeholder="自訂" min="0" step="0.1" onchange="syncVRSelect('w')">
+          </div>
+          <div class="vr-item" id="wrap-vr-m">
+            <input type="checkbox" id="chk-vr-m" onchange="toggleVR('m')">
+            <label for="chk-vr-m">月</label>
+            <select id="sel-vr-m" onchange="syncVRInput('m')">
+              <option value="">-- 選擇 --</option>
+              <option value="1000">≥ 1000（頂部極端）</option>
+              <option value="200-1000">200–1000（正常偏高）</option>
+              <option value="0" selected>≤ 0.1（底部極端）</option>
+            </select>
+            <span style="font-size:10px;color:#888780;">或</span>
+            <input type="number" id="inp-vr-m" placeholder="自訂" min="0" step="0.1" onchange="syncVRSelect('m')">
+          </div>
+        </div>
+      </div>
+    </div>
+    <p style="font-size:10px;color:#888780;margin-bottom:14px;">偏好激進：降低門檻 / 偏好保守：提高門檻 · VR ≤ 0.1 找底部、≥ 1000 找頂部</p>
+
+    <!-- Start scan button -->
+    <button class="btn btn-primary" id="scan-btn" onclick="startScan()" style="width:100%;margin-bottom:14px;">🔍 開始掃描</button>
+    <button class="btn btn-secondary" id="stop-scan-btn" onclick="stopScan()" style="width:100%;margin-bottom:14px;display:none;">⏹ 停止掃描</button>
+
+    <!-- Scan progress -->
+    <div class="scan-prog hidden" id="scan-prog">
+      <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
+        <span style="font-size:12px;font-weight:600;" id="scan-status">掃描中...</span>
+        <span style="font-size:12px;font-weight:700;color:#378ADD;" id="scan-timer">0.0s</span>
+      </div>
+      <div class="scan-layers" id="scan-layers"></div>
+      <div style="height:3px;background:#e8e6df;border-radius:2px;margin-top:10px;overflow:hidden;">
+        <div id="scan-fill" style="height:3px;background:#378ADD;border-radius:2px;transition:width .5s;width:0%"></div>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div id="scan-results" class="hidden"></div>
+  </div>
+
+  <!-- ══════════ TAB 2: 標的卡片設計 ══════════ -->
+  <div class="tab-body" id="tab-cards">
+    <p class="sec-t">機會卡片格式（總分 ≥ 65 觸發「進場信號」）</p>
+    <div id="demo-opportunity-cards"></div>
+
+    <p class="sec-t" style="margin-top:16px;">觀察清單格式（總分 50–64）</p>
+    <div class="card" id="demo-watchlist-results"></div>
+  </div>
+
+  <!-- ══════════ TAB 3: 話術設計 ══════════ -->
+  <div class="tab-body" id="tab-speech">
+    <p style="font-size:11px;color:#888780;margin-bottom:10px;">核心原則：說清楚理由、給出行動建議、不替用戶做決定。</p>
+
+    <!-- Correct vs Wrong example -->
+    <div class="example-row">
+      <div class="ex-ok"><div class="ex-t">✅ 正確做法</div><div class="ex-body">框架在 META 發現進場機會。PEG 0.97 顯示市場對其成長過度悲觀，RSI 14.6 為歷史極端超賣。若你認同廣告業務的長期護城河仍在，建議以 2.4% 試探進場，停損設在 $450。</div></div>
+      <div class="ex-bad"><div class="ex-t">❌ 錯誤做法</div><div class="ex-body">META 現在是強力買入！這是絕佳機會，不要錯過！RSI 超賣代表馬上反彈，目標 $754。</div></div>
+    </div>
+
+    <!-- 5 scenario templates -->
+    <div id="scenario-templates"></div>
+  </div>
+
+  <!-- ══════════ TAB 4: 完整流程 ══════════ -->
+  <div class="tab-body" id="tab-flow">
+    <p class="sec-t">用戶互動完整流程</p>
+    <div id="flow-steps-container"></div>
+
+    <p class="sec-t" style="margin-top:16px;">設計的三個核心原則</p>
+    <div id="principles-container"></div>
+  </div>
+
+  <!-- ══════════ 持倉追蹤面板 ══════════ -->
+  <div style="margin-top:20px;border-top:2px solid #e8e6df;padding-top:16px;" id="portfolio-section">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <p class="sec-t" style="margin:0;">持倉追蹤（每日更新）</p>
+      <button class="btn btn-secondary" onclick="checkAllPositions()" style="font-size:10px;padding:5px 12px;">🔄 檢查出場條件</button>
+    </div>
+    <div id="portfolio-list"><p class="empty-msg">尚無持倉記錄。在個股分析後點擊「加入持倉」即可追蹤。</p></div>
+    <div style="display:flex;gap:8px;margin-top:8px;">
+      <input type="text" id="port-add-ticker" placeholder="代號" style="width:80px;padding:6px 8px;font-size:12px;border:1px solid #d3d1c7;border-radius:6px;">
+      <input type="number" id="port-add-price" placeholder="買入價" style="width:90px;padding:6px 8px;font-size:12px;border:1px solid #d3d1c7;border-radius:6px;">
+      <input type="number" id="port-add-stop" placeholder="停損價" style="width:90px;padding:6px 8px;font-size:12px;border:1px solid #d3d1c7;border-radius:6px;">
+      <input type="number" id="port-add-tp" placeholder="目標價" style="width:90px;padding:6px 8px;font-size:12px;border:1px solid #d3d1c7;border-radius:6px;">
+      <button class="btn btn-primary" onclick="addPosition()" style="font-size:11px;padding:6px 14px;">加入</button>
+    </div>
+  </div>
+
+  <div class="note">⚠ 僅供學習研究，不構成投資建議。數據來自 Yahoo Finance 公開 API，可能有延遲。</div>
+</div>
+</div>
+<script>
+// ══════════ DEFAULT WATCHLIST ══════════
+const DEFAULT_WL = {
+  tech: ['MSFT','AAPL','GOOGL','META','NVDA','AMZN','TSM','ASML','AVGO','CRM','ADBE','ORCL','INTC','AMD','QCOM','NFLX','SNOW','NOW','SHOP','PLTR'],
+  consumer: ['COST','NKE','SBUX','MCD','KO','PEP','LVMH','UL','PG','EL'],
+  fin: ['V','MA','BRK.B','UNH','JNJ','ABBV','JPM','BAC','GS','LLY'],
+  tw: ['2330.TW','2317.TW','2454.TW','2308.TW','2382.TW','2412.TW','2881.TW','2882.TW','2303.TW','1301.TW','2886.TW','3711.TW','2891.TW','1303.TW','2002.TW'],
+  tw_tech: ['2303.TW','3034.TW','2357.TW','3008.TW','2379.TW','6505.TW','2395.TW','3443.TW','2408.TW','3037.TW','2327.TW','5274.TW','3661.TW','2345.TW','6669.TW'],
+  tw_fin: ['2881.TW','2882.TW','2886.TW','2891.TW','2884.TW','2885.TW','2880.TW','2883.TW','2887.TW','2890.TW','5880.TW','2892.TW'],
+};
+const WL_KEY = 'screener_watchlist_v5';
+const PORT_KEY = 'screener_portfolio';
+let currentScanMode = 'watchlist';  // 'watchlist' or 'fullmarket'
+let selectedMarkets = ['us'];       // ['us'], ['tw'], or ['us','tw']
+let scanAborted = false;
+
+function getWatchlist() {
+  const stored = localStorage.getItem(WL_KEY);
+  if (stored) return JSON.parse(stored);
+  const all = [...new Set([...DEFAULT_WL.tech, ...DEFAULT_WL.consumer, ...DEFAULT_WL.fin, ...DEFAULT_WL.tw, ...DEFAULT_WL.tw_tech, ...DEFAULT_WL.tw_fin])];
+  localStorage.setItem(WL_KEY, JSON.stringify(all));
+  return all;
+}
+function saveWatchlist(list) { localStorage.setItem(WL_KEY, JSON.stringify(list)); }
+
+function getPortfolio() {
+  const stored = localStorage.getItem(PORT_KEY);
+  return stored ? JSON.parse(stored) : [];
+}
+function savePortfolio(list) { localStorage.setItem(PORT_KEY, JSON.stringify(list)); }
+
+// ══════════ TAB SWITCHING ══════════
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-body').forEach(b => b.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+// ══════════ WATCHLIST CHIPS ══════════
+function renderWatchlistChips() {
+  const wl = getWatchlist();
+  const cats = { 'wl-tech': DEFAULT_WL.tech, 'wl-consumer': DEFAULT_WL.consumer, 'wl-fin': DEFAULT_WL.fin, 'wl-tw': DEFAULT_WL.tw, 'wl-tw-tech': DEFAULT_WL.tw_tech, 'wl-tw-fin': DEFAULT_WL.tw_fin };
+  Object.entries(cats).forEach(([id, symbols]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = symbols.map(s => {
+      const isChecked = wl.includes(s);
+      return `<div class="wl-chip ${isChecked?'on':''} ${!isChecked?'custom':''}" onclick="toggleWL('${s}',this)" title="點擊切換 / 點擊✕刪除"><span>${s}</span>${!isChecked?'<span class="wl-chip-del" onclick="deleteFromWL(\''+s+'\'); event.stopPropagation();">✕</span>':''}</div>`;
+    }).join('');
+  });
+  // 渲染自訂代碼：所有不在預設分類中的代碼
+  const allDefault = [...new Set([...DEFAULT_WL.tech, ...DEFAULT_WL.consumer, ...DEFAULT_WL.fin, ...DEFAULT_WL.tw, ...DEFAULT_WL.tw_tech, ...DEFAULT_WL.tw_fin])];
+  const customSymbols = wl.filter(s => !allDefault.includes(s)).sort();
+  const customEl = document.getElementById('wl-custom');
+  customEl.innerHTML = customSymbols.length ? customSymbols.map(s =>
+    `<div class="wl-chip on custom" onclick="toggleWL('${s}',this)" title="點擊切換 / 點擊✕刪除"><span>${s}</span><span class="wl-chip-del" onclick="deleteFromWL('${s}'); event.stopPropagation();">✕</span></div>`
+  ).join('') : '<span style="font-size:11px;color:#888780;padding:4px 8px;">還沒新增自訂代碼</span>';
+}
+function toggleWL(symbol, el) {
+  let wl = getWatchlist();
+  if (wl.includes(symbol)) { wl = wl.filter(s => s !== symbol); el.classList.remove('on'); }
+  else { wl.push(symbol); el.classList.add('on'); }
+  saveWatchlist(wl);
+}
+function deleteFromWL(symbol) {
+  let wl = getWatchlist();
+  wl = wl.filter(s => s !== symbol);
+  saveWatchlist(wl);
+  renderWatchlistChips();
+}
+function addCustomWatchlist() {
+  const input = document.getElementById('wl-add-input');
+  const val = input.value.trim().toUpperCase();
+  if (!val) return;
+  let wl = getWatchlist();
+  if (!wl.includes(val)) { wl.push(val); saveWatchlist(wl); }
+  input.value = '';
+  renderWatchlistChips();
+}
+
+// ══════════ SETTINGS TOGGLES ══════════
+function toggleSetting(key) {
+  const chk = document.getElementById('chk-'+key);
+  const wrap = document.getElementById('wrap-'+key);
+  wrap.classList.toggle('disabled', !chk.checked);
+  wrap.querySelectorAll('input[type=number]').forEach(el => el.disabled = !chk.checked);
+}
+function toggleVR(tf) {
+  const chk = document.getElementById('chk-vr-'+tf);
+  const wrap = document.getElementById('wrap-vr-'+tf);
+  wrap.classList.toggle('disabled', !chk.checked);
+  wrap.querySelectorAll('select, input[type=number]').forEach(el => el.disabled = !chk.checked);
+}
+function syncVRInput(tf) {
+  // When dropdown changes, clear the custom input
+  const sel = document.getElementById('sel-vr-'+tf);
+  const inp = document.getElementById('inp-vr-'+tf);
+  if (sel.value) inp.value = '';
+}
+function syncVRSelect(tf) {
+  // When custom input changes, clear the dropdown
+  const sel = document.getElementById('sel-vr-'+tf);
+  const inp = document.getElementById('inp-vr-'+tf);
+  if (inp.value !== '') sel.value = '';
+}
+function getVRFilter(tf) {
+  // Returns {enabled, mode, value} for a VR timeframe filter
+  const chk = document.getElementById('chk-vr-'+tf);
+  if (!chk.checked) return { enabled: false };
+  const sel = document.getElementById('sel-vr-'+tf).value;
+  const inp = document.getElementById('inp-vr-'+tf).value;
+  if (inp !== '') {
+    const v = parseFloat(inp);
+    return { enabled: true, mode: 'custom', value: v };
+  }
+  if (sel === '1000') return { enabled: true, mode: 'gte', value: 1000 };      // VR ≥ 1000
+  if (sel === '200-1000') return { enabled: true, mode: 'range', lo: 200, hi: 1000 };
+  if (sel === '0') return { enabled: true, mode: 'lte', value: 0.1 };          // VR ≤ 0.1
+  return { enabled: false };
+}
+function vrMatchFilter(vrValue, filter) {
+  if (!filter.enabled || vrValue == null) return !filter.enabled; // disabled = pass all
+  if (filter.mode === 'gte') return vrValue >= filter.value;
+  if (filter.mode === 'lte') return vrValue <= filter.value;
+  if (filter.mode === 'range') return vrValue >= filter.lo && vrValue <= filter.hi;
+  if (filter.mode === 'custom') return vrValue <= filter.value;
+  return true;
+}
+// Init: set VR items as disabled since checkboxes unchecked by default
+document.addEventListener('DOMContentLoaded', () => {
+  ['d','w','m'].forEach(tf => toggleVR(tf));
+});
+
+// ══════════ CORS PROXY (same as index.html) ══════════
+async function proxyFetch(url) {
+  try {
+    const r = await fetch('/api/proxy', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({url}), signal:AbortSignal.timeout(15000) });
+    if (r.ok) return await r.json();
+  } catch(e) {}
+  const proxies = [u=>`https://corsproxy.io/?${encodeURIComponent(u)}`, u=>`https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`];
+  for (const pf of proxies) {
+    try { const r = await fetch(pf(url), {signal:AbortSignal.timeout(12000)}); if(r.ok){const t=await r.text();if(t?.length>10)return JSON.parse(t);} } catch(e) {}
+  }
+  throw new Error('代理失敗');
+}
+
+// ══════════ FAST DATA FETCHERS (lightweight for screening) ══════════
+async function fetchQuickFundamentals(ticker) {
+  try {
+    const r = await fetch('/api/fundamentals', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ticker}), signal:AbortSignal.timeout(12000) });
+    if (!r.ok) throw new Error(`${r.status}`);
+    const d = await r.json();
+    if (d._error) throw new Error(d._error);
+    const pct = v => v!=null ? Math.round(v*100*10)/10 : 0;
+    return {
+      pe_ttm: parseFloat((d.trailingPE||0).toFixed(1)),
+      pe_fwd: parseFloat((d.forwardPE||0).toFixed(1)),
+      peg: d.pegRatio!=null ? parseFloat(d.pegRatio.toFixed(2)) : null,
+      gross_margin: pct(d.grossMargins),
+      net_margin: pct(d.profitMargins),
+      rev_growth: pct(d.revenueGrowth),
+      eps_growth: d.earningsGrowth!=null ? Math.round(d.earningsGrowth*100) : 0,
+      analyst_target: parseFloat((d.targetMeanPrice||0).toFixed(2)),
+      analyst_count: d.numberOfAnalystOpinions||0,
+      sector: d.sector||'N/A',
+      industry: d.industry||'N/A',
+      beta: parseFloat((d.beta||1).toFixed(2)),
+      dividend_yield: parseFloat(((d.dividendYield||0)*100).toFixed(2)),
+      name: d.shortName || d.longName || ticker,
+      fcf_raw: d.freeCashflow||0,
+      consensus: d.recommendationKey||'N/A',
+      eq: (pct(d.grossMargins)>=60 && pct(d.profitMargins)>=15) ? '高' : pct(d.grossMargins)>=40 ? '中' : '低',
+    };
+  } catch(e) { return null; }
+}
+
+async function fetchQuickChart(ticker) {
+  try {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1y`;
+    const data = await proxyFetch(url);
+    const result = data?.chart?.result?.[0];
+    if (!result) return null;
+    const meta = result.meta||{};
+    const quotes = result.indicators?.quote?.[0]||{};
+    const closes = (quotes.close||[]).filter(v=>v!=null&&v>0);
+    const price = parseFloat((meta.regularMarketPrice||meta.previousClose||0).toFixed(2));
+    // RSI
+    let rsi = 50;
+    if (closes.length >= 15) {
+      let gains=0,losses=0;
+      for(let i=closes.length-14;i<closes.length;i++){const d=closes[i]-closes[i-1];if(d>0)gains+=d;else losses-=d;}
+      const ag=gains/14,al=losses/14;
+      rsi = al===0 ? 100 : 100-100/(1+ag/al);
+    }
+    // MACD
+    let macd = '中性';
+    if (closes.length >= 26) {
+      const ema = (arr,p)=>{if(!arr||!arr.length)return 0;if(arr.length<p)return arr[arr.length-1]||0;const k=2/(p+1);let e=arr.slice(0,p).reduce((a,b)=>a+b,0)/p;for(let i=p;i<arr.length;i++)e=arr[i]*k+e*(1-k);return e;};
+      const e12=ema(closes,12),e26=ema(closes,26),ml=e12-e26;
+      const mh=[];for(let i=Math.max(0,closes.length-35);i<closes.length;i++){mh.push(ema(closes.slice(0,i+1),12)-ema(closes.slice(0,i+1),26));}
+      const sl=ema(mh,9);macd=ml-sl>0?'買入':'賣出';
+    }
+    const w52h = closes.length ? parseFloat(Math.max(...closes).toFixed(2)) : 0;
+    const w52l = closes.length ? parseFloat(Math.min(...closes).toFixed(2)) : 0;
+    let change_pct = 0;
+    if (meta.regularMarketChangePercent!=null) change_pct=parseFloat(meta.regularMarketChangePercent.toFixed(2));
+    else if (meta.previousClose&&meta.previousClose>0) change_pct=parseFloat(((price-meta.previousClose)/meta.previousClose*100).toFixed(2));
+    // VR 量比指標
+    const timestamps = result.timestamp||[];
+    const opens=quotes.open||[],highs=quotes.high||[],lows=quotes.low||[],vols=quotes.volume||[];
+    const dailyBars=[];
+    for(let i=0;i<timestamps.length;i++){const c2=quotes.close?.[i],v2=vols[i];if(c2!=null&&c2>0&&v2!=null)dailyBars.push({o:opens[i]||c2,h:highs[i]||c2,l:lows[i]||c2,c:c2,v:v2,ts:timestamps[i]});}
+    const vr = dailyBars.length>30 ? calcFullVRS(dailyBars, price) : null;
+    return { price, rsi:parseFloat(rsi.toFixed(1)), macd, week52_high:w52h, week52_low:w52l, change_pct, mktcap:meta.marketCap?fmtCap(meta.marketCap):'N/A', vr };
+  } catch(e) { return null; }
+}
+
+function fmtCap(n){return n>=1e12?'$'+(n/1e12).toFixed(2)+'T':n>=1e9?'$'+(n/1e9).toFixed(1)+'B':'$'+(n/1e6).toFixed(0)+'M';}
+
+// ══════════ VR 量比指標（PineScript 精確版）══════════
+const smaS = (arr,p)=>arr.length<p?null:arr.slice(-p).reduce((a,b)=>a+b,0)/p;
+function calcVRPreciseS(bars,period=3){
+  if(bars.length<period) return {values:[],upVols:[],downVols:[],evenVols:[]};
+  const uV=[],dV=[],eV=[];
+  for(let i=1;i<bars.length;i++){const v=bars[i].v||0;if(bars[i].c>bars[i-1].c)uV.push(v);else if(bars[i].c<bars[i-1].c)dV.push(v);else eV.push(v);}
+  const mL=Math.max(uV.length,dV.length,eV.length);
+  while(uV.length<mL)uV.unshift(0);while(dV.length<mL)dV.unshift(0);while(eV.length<mL)eV.unshift(0);
+  const vals=[];
+  for(let i=period-1;i<uV.length;i++){
+    const uS=smaS(uV.slice(0,i+1),period),dS=smaS(dV.slice(0,i+1),period),eS=smaS(eV.slice(0,i+1),period);
+    if(!uS||!dS||!eS){vals.push(null);continue;}
+    const su=uS*period,sd=dS*period,se=eS*period,den=sd+se;
+    const vr=den>0.0001?((su+se)/den)*100:999;vals.push(Math.min(vr,1000));
+  }
+  return {values:vals,upVols:uV,downVols:dV,evenVols:eV};
+}
+function aggToTF(bars,tf){
+  if(tf==='daily')return bars;
+  const g={};
+  bars.forEach(b=>{const d=new Date(b.ts*1000),k=tf==='weekly'?d.toISOString().slice(0,10):`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;if(!g[k])g[k]=[];g[k].push(b);});
+  return Object.values(g).map(bs=>({o:bs[0].o,h:Math.max(...bs.map(x=>x.h)),l:Math.min(...bs.map(x=>x.l)),c:bs[bs.length-1].c,v:bs.reduce((s,x)=>s+x.v,0),ts:bs[bs.length-1].ts}));
+}
+function detectTP(bars,vrVals){
+  if(!vrVals||!vrVals.length)return{dots:[],supports:[],resistances:[]};
+  const dots=[],supports=[],resistances=[];let inH=false,inL=false,extHP=0,extLP=Infinity,extHS=-1,extLS=-1;
+  // 計算 20 根 bar 的平均成交量
+  const avgVol=bars.length>20?bars.slice(-20).reduce((s,b)=>s+b.v,0)/20:0;
+  for(let i=0;i<vrVals.length;i++){
+    const vr=vrVals[i];if(vr===null)continue;const b=bars[i];
+    if(vr>=1000&&!inH){inH=true;extHP=b.h;extHS=i;}
+    if(vr<=0.1&&!inL){inL=true;extLP=b.l;extLS=i;}
+    if(inH){extHP=Math.max(extHP,b.h);dots.push({ts:b.ts,price:b.h,type:'red',reason:'買壓極端'});}
+    if(inL){extLP=Math.min(extLP,b.l);
+      // 黃點 vs 綠點：根據成交量判斷
+      const dotType=b.v<=avgVol?'yellow':'green';
+      const reason=b.v<=avgVol?'賣壓耗盡（量縮）':'賣壓極端（量大）';
+      dots.push({ts:b.ts,price:b.l,type:dotType,reason});
+    }
+    if(inH&&vr<1000){resistances.push({price:extHP,ts:b.ts,start:extHS,end:i});inH=false;extHP=0;}
+    if(inL&&vr>0.1){supports.push({price:extLP,ts:b.ts,start:extLS,end:i});inL=false;extLP=Infinity;}
+  }
+  return{dots,supports:supports.slice(-3),resistances:resistances.slice(-3)};
+}
+function calcFullVRS(dailyBars,currentPrice){
+  const dVR=calcVRPreciseS(dailyBars,3),dTP=detectTP(dailyBars,dVR.values);
+  const wB=aggToTF(dailyBars,'weekly'),wVR=calcVRPreciseS(wB,3),wTP=detectTP(wB,wVR.values);
+  const mB=aggToTF(dailyBars,'monthly'),mVR=calcVRPreciseS(mB,3),mTP=detectTP(mB,mVR.values);
+  const allS=[...dTP.supports.map(s=>({...s,tf:'日'})),...wTP.supports.map(s=>({...s,tf:'週'})),...mTP.supports.map(s=>({...s,tf:'月'}))].sort((a,b)=>b.price-a.price);
+  const allR=[...dTP.resistances.map(r=>({...r,tf:'日'})),...wTP.resistances.map(r=>({...r,tf:'週'})),...mTP.resistances.map(r=>({...r,tf:'月'}))].sort((a,b)=>a.price-b.price);
+  const nS=allS.find(s=>s.price<currentPrice),nR=allR.find(r=>r.price>currentPrice);
+  const dVRV=dVR.values.filter(v=>v!==null),cVR=dVRV.length?dVRV[dVRV.length-1]:null;
+  const allD=[...dTP.dots.map(d=>({...d,tf:'日'})),...wTP.dots.map(d=>({...d,tf:'週'})),...mTP.dots.map(d=>({...d,tf:'月'}))];
+  const rD=allD.length?allD[allD.length-1]:null;
+  const aPd=nS?Math.abs(currentPrice-nS.price)/currentPrice*100:99,atS=aPd<=2;
+  const abD=dTP.resistances.length>0&&currentPrice>dTP.resistances[0].price,abW=wTP.resistances.length>0&&currentPrice>wTP.resistances[0].price,abM=mTP.resistances.length>0&&currentPrice>mTP.resistances[0].price;
+  const kb=abM?{color:'pink',label:'月線',level:3}:abW?{color:'purple',label:'週線',level:2}:abD?{color:'white',label:'日線',level:1}:{color:'none',label:'壓力下',level:0};
+  return{currentVR:cVR,kbar:kb,nearSupport:nS,nearResistance:nR,allSupports:allS,allResistances:allR,recentDot:rD,atSupport:atS,nearSupportPct:aPd,confirmChip:cVR!==null&&cVR<=0.1,confirmSupport:atS,daily:dVR,weekly:wVR,monthly:mVR,dailyTP:dTP,weeklyTP:wTP,monthlyTP:mTP};
+}
+
+// ══════════ MACRO CHECK ══════════
+async function fetchMacroForScan() {
+  let vix=20, fg=50, fedRate='N/A', regime='Goldilocks';
+  try {
+    const [vd,fd] = await Promise.all([
+      proxyFetch('https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX?interval=1d&range=5d').catch(()=>null),
+      proxyFetch('https://production.dataviz.cnn.io/index/fearandgreed/graphdata').catch(()=>null),
+    ]);
+    if(vd) vix = parseFloat((vd?.chart?.result?.[0]?.meta?.regularMarketPrice||20).toFixed(2));
+    if(fd) fg = Math.round(fd?.fear_and_greed?.score||50);
+  } catch(e) {}
+  if (vix<15&&fg>55) regime='Goldilocks';
+  else if (vix>25&&fg<30) regime='Risk-off';
+  else if (vix>20&&fg<45) regime='Stagflation';
+  return { vix, fg, regime, fedRate };
+}
+
+// ══════════ FULL SCORING (same logic as index.html render) ══════════
+function scoreStock(fund, chart, macro) {
+  const m = macro||{};
+  const regime = m.regime||'Goldilocks';
+  const vix = +(m.vix)||20;
+  const fg = +(m.fg)||50;
+  const rgMul = {Goldilocks:1.0, Stagflation:0.70, 'Deflation Fear':0.80, 'Risk-off':0.30};
+  const mul = rgMul[regime]||1.0;
+  // M1
+  let m1=15; if(fg<=25)m1+=35;else if(fg<=45)m1+=20; if(vix>20)m1+=20;
+  const m1s = Math.min(100, Math.round(m1*mul));
+  // Bayes p
+  let p=0.50;
+  if(fund.eq==='高') p+=0.05;
+  if((fund.consensus||'').toLowerCase().includes('buy')) p+=0.07;
+  const price = +(chart.price)||0;
+  const target = +(fund.analyst_target)||0;
+  const upPct = (target&&price) ? (target-price)/price*100 : 0;
+  if(upPct>=30) p+=0.06;
+  if(fund.eps_growth>=20) p+=0.04;
+  p = Math.min(0.85, Math.max(0.25, p));
+  // M2
+  const peg = +(fund.peg)||99;
+  const gm = +(fund.gross_margin)||0;
+  let m2=0;
+  if(peg<=1)m2+=30;else if(peg<=1.5)m2+=18;else if(peg<=2)m2+=8;
+  if(gm>=70)m2+=15;else if(gm>=50)m2+=8;
+  if(upPct>=40)m2+=20;else if(upPct>=20)m2+=12;else if(upPct>=10)m2+=6;
+  if((+(fund.eps_growth)||0)>=20)m2+=15;else if((+(fund.eps_growth)||0)>=10)m2+=8;
+  if(fund.eq==='高')m2+=10;else if(fund.eq==='中')m2+=5;
+  if((fund.consensus||'').toLowerCase().includes('buy'))m2+=10;
+  const m2s = Math.min(100, m2);
+  // M3（三維確認：動能+籌碼+支撐）
+  const rsi = +(chart.rsi)||50;
+  const vr = chart.vr||null;
+  const cVR = vr ? vr.currentVR : null;
+  let m3=0, vrScore=0;
+  // 動能層
+  if(rsi<20)m3+=30;else if(rsi<30)m3+=20;else if(rsi<40)m3+=10;
+  if(chart.macd==='買入')m3+=15;else if(chart.macd==='中性')m3+=5;
+  // 籌碼層（VR）— 直接用 VR 值計算
+  let vrChipConfirm=false, vrSup=false;
+  if(cVR!==null){
+    // VR 值本身得分
+    if(cVR<=0.1){ vrScore=Math.min(40,(0.1-cVR)/0.09*40); vrChipConfirm=true; }
+    else if(cVR>=1000){ vrScore=Math.min(30,Math.min((cVR-1000)/500,1)*30); }
+    else if(cVR<50){ vrScore=(50-cVR)/50*25; }
+    else if(cVR>200){ vrScore=Math.min(20,(cVR-200)/800*20); }
+    // 圓點獎勵
+    if(vr.recentDot){ if(vr.recentDot.type==='yellow')vrScore+=10; else if(vr.recentDot.type==='green')vrScore+=5; }
+    // K棒獎勵
+    if(vr.kbar&&vr.kbar.level>0) vrScore+=vr.kbar.level*4;
+    // 支撐線確認
+    if(vr.atSupport){ vrScore+=15; vrSup=true; }
+    else if(vr.nearSupportPct<=5) vrScore+=8;
+    m3+=Math.min(50,vrScore);
+  }
+  m3+=5; // moat placeholder
+  const m3s = Math.min(100, m3);
+  // 三維共振
+  const confirmMom = rsi<35, confirmChip = vrChipConfirm||(cVR!==null&&cVR<=0.1), confirmSup = vrSup;
+  const tripleConfirm = [confirmMom, confirmChip, confirmSup].filter(Boolean).length;
+  const align = tripleConfirm;
+
+  // ── M4: Kelly 凱利倉位（修復：計算缺失的 fullK 和 b）
+  const w52l = +(chart.week52_low)||(price*0.82);
+  const dPct = price&&w52l ? Math.max(1,(price-w52l)/price*100) : 20;
+  const b = Math.max(0.5, upPct/dPct);
+  const fullK = Math.max(0, (p*b-(1-p))/b);
+  const dynK = vix>30?0.125:vix>25?0.20:0.25;
+  const alMul = align>=3?1:align>=2?0.5:0.15;
+  const pos = Math.min(0.12, fullK*dynK*alMul);
+  const m4s = Math.min(100, Math.round(pos*750+(b>=2?20:b>=1.5?10:0)));
+
+  // Exit / M5
+  const fv = target||(price*1.4);
+  const stopL = w52l*0.95;
+  const rr = (price&&stopL&&price>stopL) ? (fv-price)/(price-stopL) : 0;
+  const m5s = rr>=2?80:rr>=1.5?60:rr>=1?40:20;
+  const total = Math.round(m1s*0.20 + m2s*0.30 + m3s*0.25 + m4s*0.15 + m5s*0.10);
+  return {
+    m1s, m2s, m3s, m4s, m5s, total, p, b, fullK, pos, rr, upPct, dPct,
+    price, target, stopL, fv, rsi, peg, gm, regime, mul, align, dynK,
+    tripleConfirm, confirmMom, confirmChip, confirmSup,
+  };
+}
+
+// ══════════ SCAN MODE / MARKET FUNCTIONS ══════════
+function setScanMode(mode) {
+  currentScanMode = mode;
+  document.querySelectorAll('.scan-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+  document.getElementById('market-selector').classList.toggle('hidden', mode !== 'fullmarket');
+  const l0 = document.getElementById('layer0-card');
+  const wlCats = document.querySelector('.wl-cats');
+  const wlAdd = document.getElementById('wl-add-input')?.parentElement;
+  if (mode === 'fullmarket') {
+    document.getElementById('layer0-title').textContent = '全市場掃描（Yahoo Finance Screener）';
+    document.getElementById('layer0-desc').textContent = '從 Yahoo Finance 拉取選定市場的股票清單（按市值排序），自動進入四層漏斗篩選。';
+    document.getElementById('layer0-hint').textContent = '美股掃描約 200–500 支，台股約 100–300 支';
+    document.getElementById('scan-batch-info').classList.add('show');
+    if (wlCats) wlCats.style.display = 'none';
+    if (wlAdd) wlAdd.style.display = 'none';
+  } else {
+    document.getElementById('layer0-title').textContent = '觀察清單（Watchlist）';
+    document.getElementById('layer0-desc').textContent = '預設 50–100 支股票，涵蓋不同行業。用戶可自訂新增。';
+    document.getElementById('layer0-hint').textContent = '美股 + 台股，建議 30–80 支';
+    document.getElementById('scan-batch-info').classList.remove('show');
+    if (wlCats) wlCats.style.display = '';
+    if (wlAdd) wlAdd.style.display = '';
+  }
+}
+function toggleMarket(market, el) {
+  el.classList.toggle('active');
+  selectedMarkets = [...document.querySelectorAll('.market-chip.active')].map(c => c.dataset.market);
+  if (!selectedMarkets.length) { el.classList.add('active'); selectedMarkets = [market]; }
+  const labels = selectedMarkets.map(m => m === 'us' ? '🇺🇸 美股' : '🇹🇼 台股').join(' + ');
+  document.getElementById('market-stats').textContent = `已選擇：${labels}。點擊「開始掃描」將從 Yahoo Finance 拉取各市場市值前 250 大股票進行分析。`;
+}
+
+// 從 Yahoo Finance Screener API 拉取市場股票
+async function fetchMarketStocks(market) {
+  const allQuotes = [];
+  const pageSize = 250;
+  try {
+    const r = await fetch('/api/screener', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ market, offset: 0, size: pageSize }),
+      signal: AbortSignal.timeout(30000)
+    });
+    if (!r.ok) throw new Error(`API ${r.status}`);
+    const data = await r.json();
+    if (data.quotes) allQuotes.push(...data.quotes);
+    console.log(`[fetchMarketStocks] ${market}: got ${allQuotes.length} stocks`);
+  } catch(e) {
+    console.error(`[fetchMarketStocks] ${market} error:`, e.message);
+  }
+  return allQuotes.map(q => q.symbol);
+}
+
+function stopScan() {
+  scanAborted = true;
+}
+
+// ══════════ MAIN SCAN ENGINE ══════════
+let scanRunning = false;
+async function startScan() {
+  if (scanRunning) return;
+  scanRunning = true;
+  scanAborted = false;
+  const btn = document.getElementById('scan-btn');
+  const stopBtn = document.getElementById('stop-scan-btn');
+  btn.disabled = true; btn.textContent = '掃描中...';
+  stopBtn.style.display = 'block';
+  const prog = document.getElementById('scan-prog');
+  prog.classList.remove('hidden');
+  const results = document.getElementById('scan-results');
+  results.classList.add('hidden');
+  results.innerHTML = '';
+  const t0 = performance.now();
+  const timer = setInterval(() => {
+    document.getElementById('scan-timer').textContent = ((performance.now()-t0)/1000).toFixed(1)+'s';
+  }, 200);
+
+  // 根據掃描模式取得股票清單
+  let wl;
+  if (currentScanMode === 'fullmarket') {
+    document.getElementById('scan-status').textContent = '正在從 Yahoo Finance 拉取市場股票清單...';
+    wl = [];
+    for (const market of selectedMarkets) {
+      if (scanAborted) break;
+      const stocks = await fetchMarketStocks(market);
+      wl.push(...stocks);
+    }
+    wl = [...new Set(wl)]; // 去重
+    if (!wl.length) {
+      document.getElementById('scan-status').textContent = '無法取得市場數據，請稍後再試';
+      clearInterval(timer); btn.disabled=false; btn.textContent='🔍 開始掃描'; stopBtn.style.display='none'; scanRunning=false;
+      return;
+    }
+    document.getElementById('scan-status').textContent = `已取得 ${wl.length} 支股票，開始四層漏斗篩選...`;
+  } else {
+    wl = getWatchlist();
+  }
+  // 讀取勾選狀態和值
+  const useScore = document.getElementById('chk-score').checked;
+  const useRsi = document.getElementById('chk-rsi').checked;
+  const useUpside = document.getElementById('chk-upside').checked;
+  const usePeg = document.getElementById('chk-peg').checked;
+  const minScore = useScore ? (+(document.getElementById('set-min-score').value)||65) : 0;
+  const rsiThresh = useRsi ? (+(document.getElementById('set-rsi').value)||40) : 999;
+  const upsideThresh = useUpside ? (+(document.getElementById('set-upside').value)||15) : 0;
+  const pegMax = usePeg ? (+(document.getElementById('set-peg').value)||2) : 999;
+  // VR 篩選
+  const vrFilterD = getVRFilter('d');
+  const vrFilterW = getVRFilter('w');
+  const vrFilterM = getVRFilter('m');
+  const useVR = vrFilterD.enabled || vrFilterW.enabled || vrFilterM.enabled;
+
+  const updateLayer = (n, state, text, badge) => {
+    const layers = document.getElementById('scan-layers');
+    let el = document.getElementById('scan-l'+n);
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'scan-layer'; el.id = 'scan-l'+n;
+      layers.appendChild(el);
+    }
+    const dotCls = state==='pass'?'pass':state==='fail'?'fail':state==='run'?'run':'';
+    const dotTxt = state==='pass'?'✓':state==='fail'?'✗':state==='run'?'▶':n;
+    const badgeCls = state==='pass'?'background:#EAF3DE;color:#3B6D11':state==='fail'?'background:#FCEBEB;color:#A32D2D':'background:#E6F1FB;color:#185FA5';
+    el.innerHTML = `<div class="scan-dot ${dotCls}">${dotTxt}</div><div class="scan-txt">${text}</div><span class="scan-badge" style="${badgeCls}">${badge}</span>`;
+  };
+
+  document.getElementById('scan-layers').innerHTML = '';
+  document.getElementById('scan-fill').style.width = '5%';
+
+  // ── L1: Macro gate
+  updateLayer(1, 'run', '第一層：檢查宏觀環境...', '進行中');
+  const macro = await fetchMacroForScan();
+  const macroPass = macro.fg <= 45 || macro.vix >= 20;
+  document.getElementById('scan-fill').style.width = '15%';
+
+  if (!macroPass) {
+    updateLayer(1, 'fail', `宏觀環境：${macro.regime}（F&G ${macro.fg}/100, VIX ${macro.vix}）`, '暫停掃描');
+    document.getElementById('scan-status').textContent = '宏觀環境不佳，暫停掃描';
+    results.classList.remove('hidden');
+    results.innerHTML = renderScenario3(macro);
+    clearInterval(timer); btn.disabled=false; btn.textContent='🔍 開始掃描'; stopBtn.style.display='none'; scanRunning=false;
+    return;
+  }
+  updateLayer(1, 'pass', `宏觀通過：${macro.regime}（F&G ${macro.fg}/100, VIX ${macro.vix}）`, '通過');
+  if (scanAborted) { clearInterval(timer); btn.disabled=false; btn.textContent='🔍 開始掃描'; stopBtn.style.display='none'; scanRunning=false; return; }
+
+  // ── L2: Valuation quick screen
+  const modeLabel = currentScanMode === 'fullmarket' ? '（全市場）' : '';
+  updateLayer(2, 'run', `第二層：估值初篩 ${wl.length} 支${modeLabel}...`, '進行中');
+  const l2Results = [];
+  const batchSize = 5;
+  for (let i=0; i<wl.length; i+=batchSize) {
+    if (scanAborted) break;
+    const batch = wl.slice(i, i+batchSize);
+    const fundResults = await Promise.all(batch.map(tk => fetchQuickFundamentals(tk)));
+    for (let j=0; j<batch.length; j++) {
+      const f = fundResults[j];
+      if (!f) continue;
+      const pegOk = !usePeg || (f.peg != null && f.peg > 0 && f.peg <= pegMax);
+      const hasGoodTarget = f.analyst_target > 0 && f.analyst_count >= 3;
+      const hasBasicData = f.analyst_target > 0 || f.peg != null;
+      const goodFundamentals = f.gross_margin >= 40 || f.eps_growth >= 15;
+      if (pegOk && (hasGoodTarget || (hasBasicData && goodFundamentals))) {
+        l2Results.push({ ticker: batch[j], fund: f });
+      }
+    }
+    const pct = Math.min(60, 15 + (i/wl.length)*45);
+    document.getElementById('scan-fill').style.width = pct+'%';
+    document.getElementById('scan-status').textContent = `正在分析第 ${Math.min(i+batchSize, wl.length)}/${wl.length} 支...（已找到 ${l2Results.length} 支通過初篩）`;
+  }
+  if (scanAborted) { clearInterval(timer); btn.disabled=false; btn.textContent='🔍 開始掃描'; stopBtn.style.display='none'; scanRunning=false; document.getElementById('scan-status').textContent='掃描已中止'; return; }
+
+  // Now get chart data for L2 results to calculate upside
+  const l2WithChart = [];
+  for (let i=0; i<l2Results.length; i+=batchSize) {
+    if (scanAborted) break;
+    const batch = l2Results.slice(i, i+batchSize);
+    document.getElementById('scan-status').textContent = `取得技術面數據 ${Math.min(i+batchSize, l2Results.length)}/${l2Results.length}...`;
+    const chartResults = await Promise.all(batch.map(r => fetchQuickChart(r.ticker)));
+    for (let j=0; j<batch.length; j++) {
+      const c = chartResults[j];
+      if (!c || !c.price) continue;
+      const f = batch[j].fund;
+      const upside = f.analyst_target > 0 ? (f.analyst_target - c.price)/c.price*100 : 0;
+      // 修復：上行篩選邏輯
+      // - 未啟用篩選：通過所有
+      // - 已啟用篩選：有分析師目標 && 上行足夠
+      const hasAnalystTarget = f.analyst_target > 0;
+      const upsideOk = !useUpside || !hasAnalystTarget || (upside >= upsideThresh);
+      if (upsideOk) {
+        l2WithChart.push({ ticker: batch[j].ticker, fund: f, chart: c, upside });
+      }
+    }
+  }
+  const l2Desc = [usePeg?`PEG≤${pegMax}`:'',useUpside?`上行≥${upsideThresh}%`:'']. filter(Boolean).join(' + ')||'基本篩選';
+  updateLayer(2, 'pass', `估值初篩完成：${l2WithChart.length}/${wl.length} 支通過（${l2Desc}）`, `${l2WithChart.length}支`);
+  document.getElementById('scan-fill').style.width = '65%';
+
+  // ── L3: Technical + VR filter
+  const l3Conds = [];
+  if (useRsi) l3Conds.push(`RSI≤${rsiThresh}`);
+  if (useVR) l3Conds.push('VR量比');
+  const l3Label = l3Conds.length ? l3Conds.join(' + ') : '全部通過';
+  updateLayer(3, 'run', `第三層：技術面過濾（${l3Label}）...`, '進行中');
+  const l3Results = l2WithChart.filter(r => {
+    // RSI check
+    if (useRsi && r.chart.rsi > rsiThresh) return false;
+    // VR check
+    if (useVR && r.chart.vr) {
+      const vr = r.chart.vr;
+      if (vrFilterD.enabled) {
+        const dVals = vr.daily.values.filter(v=>v!=null);
+        const dLast = dVals.length ? dVals[dVals.length-1] : null;
+        if (!vrMatchFilter(dLast, vrFilterD)) return false;
+      }
+      if (vrFilterW.enabled) {
+        const wVals = vr.weekly.values.filter(v=>v!=null);
+        const wLast = wVals.length ? wVals[wVals.length-1] : null;
+        if (!vrMatchFilter(wLast, vrFilterW)) return false;
+      }
+      if (vrFilterM.enabled) {
+        const mVals = vr.monthly.values.filter(v=>v!=null);
+        const mLast = mVals.length ? mVals[mVals.length-1] : null;
+        if (!vrMatchFilter(mLast, vrFilterM)) return false;
+      }
+    }
+    return true;
+  });
+  updateLayer(3, 'pass', `技術面過濾：${l3Results.length}/${l2WithChart.length} 支通過（${l3Label}）`, `${l3Results.length}支`);
+  document.getElementById('scan-fill').style.width = '80%';
+
+  // ── L4: Full scoring
+  updateLayer(4, 'run', `第四層：完整評分 ${l3Results.length} 支...`, '進行中');
+  const scored = l3Results.map(r => {
+    const sc = scoreStock(r.fund, r.chart, macro);
+    return { ...r, score: sc };
+  }).sort((a,b) => b.score.total - a.score.total);
+
+  // Also score L2 stocks that didn't pass L3 for watchlist
+  const l2Only = l2WithChart.filter(r => r.chart.rsi > rsiThresh).map(r => {
+    const sc = scoreStock(r.fund, r.chart, macro);
+    return { ...r, score: sc };
+  }).sort((a,b) => b.score.total - a.score.total);
+
+  updateLayer(4, 'pass', `完整評分完成`, `${scored.length}支進入決賽`);
+  document.getElementById('scan-fill').style.width = '100%';
+
+  const maxOpp = currentScanMode === 'fullmarket' ? 10 : 5;
+  const maxWatch = currentScanMode === 'fullmarket' ? 20 : 10;
+  const opportunities = scored.filter(r => r.score.total >= minScore).slice(0, maxOpp);
+  const watchlist = [...scored.filter(r => r.score.total < minScore && r.score.total >= 50), ...l2Only.filter(r => r.score.total >= 50)].slice(0, maxWatch);
+
+  // ── Render results
+  clearInterval(timer);
+  const elapsed = ((performance.now()-t0)/1000).toFixed(1);
+  document.getElementById('scan-timer').textContent = elapsed+'s';
+  const scanModeText = currentScanMode === 'fullmarket' ? '全市場掃描' : '觀察清單掃描';
+  const marketText = currentScanMode === 'fullmarket' ? selectedMarkets.map(m=>m==='us'?'美股':'台股').join('+') : '';
+  document.getElementById('scan-status').textContent = `${scanModeText}完成 ✓（${elapsed}s）`;
+  results.classList.remove('hidden');
+
+  let html = `<p class="sec-t" style="margin-top:12px;">📊 ${scanModeText}摘要${marketText?' · '+marketText:''} · 環境 ${macro.regime} · 掃描 ${wl.length} 支 · 初篩通過 ${l2WithChart.length} 支 · 決賽 ${l3Results.length} 支 · 進場機會 ${opportunities.length} 支</p>`;
+
+  if (opportunities.length > 0) {
+    html += `<p class="sec-t">🎯 進場機會（總分 ≥ ${minScore}）</p>`;
+    opportunities.forEach(r => { html += renderOpportunityCard(r, macro); });
+  } else if (scored.length > 0 || l2Only.length > 0) {
+    html += renderScenario4(wl.length, scored[0] || l2Only[0]);
+  } else {
+    html += renderScenario4(wl.length, null);
+  }
+
+  if (watchlist.length > 0) {
+    html += `<p class="sec-t" style="margin-top:12px;">👀 觀察清單（總分 50–${minScore-1}）</p><div class="card">`;
+    watchlist.forEach(r => { html += renderWatchlistRow(r); });
+    html += '</div>';
+  }
+
+  results.innerHTML = html;
+  btn.disabled = false; btn.textContent = '🔍 開始掃描'; stopBtn.style.display = 'none'; scanRunning = false;
+}
+
+// ══════════ RENDER: Opportunity Card ══════════
+function renderOpportunityCard(r, macro) {
+  const sc = r.score;
+  const f = r.fund;
+  const c = r.chart;
+  const col = sc.total>=72?'#639922':sc.total>=65?'#EF9F27':'#888780';
+  const lbl = sc.total>=72?'進場信號':sc.total>=65?'條件進場':'觀察名單';
+  const barColor = n => n>=65?'#639922':n>=40?'#EF9F27':'#E24B4A';
+
+  // Tags
+  let tags = '';
+  if (f.peg && f.peg < 90) tags += `<span class="tag ${f.peg<=1?'tg':'to'}">PEG ${f.peg}</span>`;
+  if (sc.rsi < 30) tags += `<span class="tag tr">RSI ${sc.rsi} 超賣</span>`;
+  else if (sc.rsi < 40) tags += `<span class="tag to">RSI ${sc.rsi} 偏低</span>`;
+  tags += `<span class="tag tb">上行 +${sc.upPct.toFixed(0)}%</span>`;
+  if (sc.regime !== 'Goldilocks') tags += `<span class="tag to">${sc.regime} ×${sc.mul}</span>`;
+  // VR tags
+  const vrData = c.vr;
+  if (vrData) {
+    if (vrData.recentDot && vrData.recentDot.type==='yellow') tags += `<span class="tag tg">🟡 VR賣壓耗盡</span>`;
+    if (vrData.atSupport) tags += `<span class="tag tg">VR支撐 $${vrData.nearSupport.price.toFixed(0)}</span>`;
+    if (vrData.kbar && vrData.kbar.level>=2) tags += `<span class="tag tb">${vrData.kbar.label}</span>`;
+    tags += `<span class="tag ${sc.tripleConfirm>=3?'tg':sc.tripleConfirm>=2?'to':'tr'}">共振 ${sc.tripleConfirm}/3</span>`;
+  }
+  if (sc.pos > 0) tags += `<span class="tag tg">倉位 ${(sc.pos*100).toFixed(1)}%</span>`;
+  else tags += `<span class="tag to">等待確認</span>`;
+
+  // Narrative (scenario 1 or 2)
+  const narr = sc.total >= 72 ? generateNarrative1(r, sc) : generateNarrative2(r, sc);
+
+  const isTW = r.ticker.endsWith('.TW') || r.ticker.endsWith('.TWO');
+  const mktFlag = isTW ? '🇹🇼' : '🇺🇸';
+  const currency = isTW ? 'NT$' : '$';
+  return `<div class="card">
+    <div class="card-hd">
+      <div class="card-tk">${mktFlag} ${r.ticker}</div>
+      <div class="card-info"><div class="card-name">${f.name}</div><div class="card-meta">${currency}${c.price} · ${f.sector} / ${f.industry}</div></div>
+      <div class="card-score"><div class="card-score-num" style="color:${col}">${sc.total}</div><div class="card-score-lbl">${lbl}</div></div>
+    </div>
+    <div class="mod-bars">
+      ${[['模組一 環境',sc.m1s],['模組二 估值',sc.m2s],['模組三 技術',sc.m3s],['模組四 凱利',sc.m4s]].map(([l,v])=>`
+        <div class="mod-bar"><div class="mod-bar-lbl">${l}</div><div class="mod-bar-track"><div class="mod-bar-fill" style="width:${v}%;background:${barColor(v)}"></div></div><div class="mod-bar-val" style="color:${barColor(v)}">${v}</div></div>
+      `).join('')}
+    </div>
+    <div class="tags">${tags}</div>
+    <div class="narr"><strong>系統判斷</strong><br>${narr}</div>
+  </div>`;
+}
+
+// ══════════ RENDER: Watchlist Row ══════════
+function renderWatchlistRow(r) {
+  const sc = r.score;
+  const col = sc.total>=55?'#EF9F27':'#888780';
+  const lbl = sc.total>=55?'等待':'觀望';
+  // Figure out what's missing
+  let missing = '';
+  if (sc.m3s < 15) missing = '等底背離確認';
+  else if (sc.m2s < 30) missing = '估值偏高，等回調至 PEG ≤ 1.5';
+  else if (sc.m1s < 40) missing = '等環境改善';
+  else missing = '估值合理但無明顯低估';
+  const isTW = r.ticker.endsWith('.TW') || r.ticker.endsWith('.TWO');
+  const mktFlag = isTW ? '🇹🇼' : '🇺🇸';
+  return `<div class="wl-result">
+    <div class="wl-dot" style="background:${col}"></div>
+    <div class="wl-tk">${mktFlag} ${r.ticker}</div>
+    <div class="wl-desc">${missing}</div>
+    <div class="wl-sc" style="color:${col}">${sc.total}</div>
+    <div class="wl-act" style="background:${sc.total>=55?'#FAEEDA':'#f5f4ef'};color:${sc.total>=55?'#854F0B':'#888780'}">${lbl}</div>
+  </div>`;
+}
+
+// ══════════ NARRATIVE GENERATORS (5 scenarios) ══════════
+function generateNarrative1(r, sc) {
+  const f = r.fund, risk1 = f.sector==='Technology'?'科技股估值波動大':'行業週期性風險';
+  const risk2 = sc.regime!=='Goldilocks'?`當前環境為${sc.regime}，系統性風險偏高`:'市場情緒可能持續惡化';
+  return `${r.ticker} 目前 PEG ${f.peg||'N/A'}，顯示市場對其成長過度悲觀。RSI ${sc.rsi} 為${sc.rsi<20?'歷史極端超賣':sc.rsi<30?'超賣區域':'偏低區域'}，${sc.rsi<30?'過去兩次出現類似讀數後反彈超過 20%':'賣壓逐步耗盡'}。主要風險是${risk1}及${risk2}。若你認同這些風險可控，建議以 ${(sc.pos*100).toFixed(1)}%（第一批）試探進場，停損設在 $${sc.stopL.toFixed(0)}。`;
+}
+function generateNarrative2(r, sc) {
+  const weakMod = sc.m3s < sc.m2s ? '技術面底背離' : (sc.m2s < sc.m1s ? '估值信號' : '環境因素');
+  return `${r.ticker} 已進入觀察名單，評分 ${sc.total}。目前缺少的信號是：${weakMod}尚未確認。建議等待${weakMod==='技術面底背離'?'RSI 降至 30 以下或 MACD 轉買入':'具體觸發條件出現'}後再行動。`;
+}
+function renderScenario3(macro) {
+  return `<div class="scenario"><div class="scenario-t">情境三：宏觀環境不佳，暫停掃描</div><div class="scenario-body">
+    「目前宏觀環境評估為 <strong>${macro.regime}</strong>，模組一分數偏低，低於進場門檻。<br><br>
+    具體原因：<strong>VIX ${macro.vix} / 恐懼貪婪 ${macro.fg}/100</strong>。<br><br>
+    在此環境下進場會大幅提高系統性風險傷害的概率。建議維持觀望，等待恐懼貪婪指數低於 25 或市場出現明確底部信號後再重啟掃描。」
+  </div></div>`;
+}
+function renderScenario4(total, closest) {
+  const cl = closest ? `最接近的是 <strong>${closest.ticker}</strong>，評分 ${closest.score.total}，差距在 <strong>${closest.score.m3s<15?'技術面':'估值面'}</strong>。` : '';
+  return `<div class="scenario"><div class="scenario-t">掃描後無機會</div><div class="scenario-body">
+    「本次掃描 ${total} 支觀察清單的，未發現符合框架進場條件的機會。<br><br>${cl}<br><br>
+    保留現金等待是合理的選擇。框架的核心是<strong>不強迫進場</strong>。沒有機會的時候，等待就是最好的策略。」
+  </div></div>`;
+}
+function generateExitNarrative(pos, condition, detail) {
+  return `你持有的 <strong>${pos.ticker}</strong> 觸發了 <strong>${condition}</strong>。<br>${detail}`;
+}
+
+// ══════════ PORTFOLIO TRACKING ══════════
+function addPosition() {
+  const tk = document.getElementById('port-add-ticker').value.trim().toUpperCase();
+  const price = parseFloat(document.getElementById('port-add-price').value);
+  const stop = parseFloat(document.getElementById('port-add-stop').value);
+  const tp = parseFloat(document.getElementById('port-add-tp').value);
+  if (!tk || !price) return alert('請輸入代號和買入價');
+  const port = getPortfolio();
+  port.push({ ticker:tk, entry_price:price, stop_loss:stop||price*0.85, target:tp||price*1.3, entry_date:new Date().toISOString().slice(0,10), quarters:0 });
+  savePortfolio(port);
+  renderPortfolio();
+  ['port-add-ticker','port-add-price','port-add-stop','port-add-tp'].forEach(id=>document.getElementById(id).value='');
+}
+function removePosition(idx) {
+  const port = getPortfolio(); port.splice(idx,1); savePortfolio(port); renderPortfolio();
+}
+function renderPortfolio() {
+  const port = getPortfolio();
+  const el = document.getElementById('portfolio-list');
+  if (!port.length) { el.innerHTML='<p class="empty-msg">尚無持倉記錄。</p>'; return; }
+  el.innerHTML = port.map((p,i) => {
+    const days = Math.round((Date.now()-new Date(p.entry_date).getTime())/86400000);
+    const quarters = Math.floor(days/90);
+    return `<div class="port-row"><div class="port-hd">
+      <div class="port-tk">${p.ticker}</div>
+      <div class="port-date">買入 $${p.entry_price} · ${p.entry_date} · 持有 ${days} 天</div>
+      <button onclick="removePosition(${i})" style="margin-left:auto;font-size:10px;cursor:pointer;border:none;background:none;color:#A32D2D;">移除</button>
+    </div><div class="port-checks" id="port-chk-${i}">
+      <div class="port-chk"><div class="port-chk-dot" style="background:#888"></div><span>硬性停損 $${p.stop_loss.toFixed(2)}</span></div>
+      <div class="port-chk"><div class="port-chk-dot" style="background:#888"></div><span>止盈目標 $${p.target.toFixed(2)}</span></div>
+      <div class="port-chk"><div class="port-chk-dot" style="background:${quarters>=3?'#E24B4A':'#888'}"></div><span>時間停損：${quarters}/3 財報季${quarters>=3?' ⚠ 已超時':''}</span></div>
+    </div></div>`;
+  }).join('');
+}
+async function checkAllPositions() {
+  const port = getPortfolio();
+  if (!port.length) return alert('無持倉記錄');
+  for (let i=0; i<port.length; i++) {
+    const p = port[i];
+    const chart = await fetchQuickChart(p.ticker);
+    if (!chart) continue;
+    const el = document.getElementById('port-chk-'+i);
+    if (!el) continue;
+    const price = chart.price;
+    const days = Math.round((Date.now()-new Date(p.entry_date).getTime())/86400000);
+    const quarters = Math.floor(days/90);
+    const tp1 = p.entry_price + (p.target-p.entry_price)*0.5;
+    const stopHit = price<=p.stop_loss, tp1Hit = price>=tp1, timeHit = quarters>=3;
+    el.innerHTML = `
+      <div class="port-chk"><div class="port-chk-dot" style="background:${stopHit?'#E24B4A':'#639922'}"></div><span>硬性停損 $${p.stop_loss.toFixed(2)} — 現價 $${price} ${stopHit?'<strong style="color:#E24B4A">⚠ 已觸發</strong>':'✓ 安全'}</span></div>
+      <div class="port-chk"><div class="port-chk-dot" style="background:${tp1Hit?'#639922':'#888'}"></div><span>止盈一 $${tp1.toFixed(2)} — 現價 $${price} ${tp1Hit?'<strong style="color:#639922">✓ 已達到</strong>':'未達'}</span></div>
+      <div class="port-chk"><div class="port-chk-dot" style="background:${timeHit?'#E24B4A':'#639922'}"></div><span>時間停損 ${quarters}/3 季 ${timeHit?'<strong style="color:#E24B4A">⚠ 已超時，建議重新評估</strong>':'✓ 正常'}</span></div>`;
+    let alerts = [];
+    if (stopHit) alerts.push('硬性停損：「股價跌破 52 週低 × 0.95，進場假設已失效，建議執行停損。」');
+    if (timeHit) alerts.push('時間停損：「已持含 3 個財報季，價格仍未達第一止盈目標，建議降至 50% 倉位，釋放資金等待更好的機會。」');
+    if (tp1Hit) alerts.push('止盈：「已達第一目標，建議賣出 30% 倉位鎖定部分利潤，並將停損線拉至成本價。」');
+    if (alerts.length) el.innerHTML += `<div class="narr" style="margin-top:6px;">${alerts.join('<br>')}</div>`;
+  }
+}
+
+// ══════════ DEMO RENDERERS (Tab 2, 3, 4) ══════════
+function renderDemoCards() {
+  const barColor = n=>n>=65?'#639922':n>=40?'#EF9F27':'#E24B4A';
+  const demoOpp = [{tk:'META',name:'Meta Platforms',price:525.72,sector:'社交媒體 / AI',total:78,lbl:'進場信號',m1:56,m2:82,m3:74,m4:68,
+    tags:[{t:'PEG 0.97',c:'tg'},{t:'RSI 14.6 超賣',c:'tr'},{t:'上行 +43%',c:'tb'},{t:'Stagflation ×0.7',c:'to'},{t:'倉位建議 8%',c:'tg'}],
+    narr:'META 目前 PEG 0.97，是框架定義的「龍頭股極佳買點」。RSI 14.6 為歷史極端超賣，過去兩次出現類似讀數後反彈超過 20%。主要風險是廣告收入受宏觀影響及 CapEx 持續高企。若你認同這些風險可控，建議以 2.4%（第一批）試探進場，停損設在 $450。'},
+  {tk:'MSFT',name:'Microsoft',price:356.77,sector:'雲端 / AI',total:58,lbl:'觀察名單',m1:56,m2:71,m3:38,m4:42,
+    tags:[{t:'PEG 1.48',c:'to'},{t:'RSI 25.6 偏低',c:'to'},{t:'上行 +66%',c:'tb'},{t:'OpenAI 法律風險',c:'tr'},{t:'等待確認',c:'to'}],
+    narr:'MSFT 估值吸引，但技術面底背離尚未確認，且 OpenAI 法律風險是模組三的主要扣分項。建議加入觀察清單，等待底背離信號出現或法律不確定性解除後再行動。'}];
+  document.getElementById('demo-opportunity-cards').innerHTML = demoOpp.map(d => `<div class="card">
+    <div class="card-hd"><div class="card-tk">${d.tk}</div><div class="card-info"><div class="card-name">${d.name}</div><div class="card-meta">$${d.price} · ${d.sector}</div></div>
+    <div class="card-score"><div class="card-score-num" style="color:${d.total>=72?'#639922':'#EF9F27'}">${d.total}</div><div class="card-score-lbl">${d.lbl}</div></div></div>
+    <div class="mod-bars">${[['模組一 環境',d.m1],['模組二 估值',d.m2],['模組三 技術',d.m3],['模組四 凱利',d.m4]].map(([l,v])=>
+      `<div class="mod-bar"><div class="mod-bar-lbl">${l}</div><div class="mod-bar-track"><div class="mod-bar-fill" style="width:${v}%;background:${barColor(v)}"></div></div><div class="mod-bar-val" style="color:${barColor(v)}">${v}</div></div>`).join('')}</div>
+    <div class="tags">${d.tags.map(t=>`<span class="tag ${t.c}">${t.t}</span>`).join('')}</div>
+    <div class="narr"><strong>系統判斷</strong><br>${d.narr}</div></div>`).join('');
+
+  document.getElementById('demo-watchlist-results').innerHTML = [
+    {dot:'#EF9F27',tk:'MSFT',desc:'等底背離確認 + OpenAI 法律風險解除',sc:58,act:'等待',ac:'#FAEEDA',atc:'#854F0B'},
+    {dot:'#EF9F27',tk:'NVDA',desc:'估值偏高，等回調至 PEG ≤ 1.5',sc:52,act:'等待',ac:'#FAEEDA',atc:'#854F0B'},
+    {dot:'#888780',tk:'AAPL',desc:'估值合理但無明顯低估，等環境改善',sc:44,act:'觀望',ac:'#f5f4ef',atc:'#888780'},
+  ].map(r=>`<div class="wl-result"><div class="wl-dot" style="background:${r.dot}"></div><div class="wl-tk">${r.tk}</div><div class="wl-desc">${r.desc}</div><div class="wl-sc" style="color:${r.dot}">${r.sc}</div><div class="wl-act" style="background:${r.ac};color:${r.atc}">${r.act}</div></div>`).join('');
+}
+
+function renderScenarioTemplates() {
+  const scenarios = [
+    {t:'情境一：發現強力進場信號（總分 ≥ 72）', body:`「框架掃描後，在觀察清單中找到 <strong>1 個</strong>符合所有四模組條件的機會。<br><br>
+      <strong>[股票代號]</strong> 目前總分 <strong>[X]</strong>/100。核心邏輯是：<strong>[用一句話說明最重要的兩個信號]</strong>。<br><br>
+      按照凱利公式，建議以 <strong>[X]%</strong> 總資金試探進場（第一批），停損設在 <strong>$[X]</strong>，目標 <strong>$[X]</strong>，風險報酬比 1:<strong>[X]</strong>。<br><br>
+      需要提醒的風險是：<strong>[1–2 個最重要的風險]</strong>。最終是否執行，請你自行判斷。」`},
+    {t:'情境二：有機會但需等待（總分 50–71）', body:`「<strong>[股票]</strong> 已進入觀察名單，評分 <strong>[X]</strong>。目前缺少的信號是：<strong>[具體說明哪個模組尚未確認]</strong>。<br><br>
+      建議等待 <strong>[具體觸發條件]</strong>。當這個條件出現時，系統會重新計算並通知你。」`},
+    {t:'情境三：宏觀環境不佳，暫停掃描', body:`「目前宏觀環境評估為 <strong>[環境類型]</strong>，模組一分數 <strong>[X]</strong>，低於進場門檻。<br><br>
+      具體原因：<strong>[VIX 水位 / 信用利差 / Fed 政策]</strong>。<br><br>
+      在此環境下進場會大幅提高系統性風險傷害的概率。建議維持觀望，等待恐懼貪婪指數低於 25 或市場出現明確底部信號後再重啟掃描。」`},
+    {t:'情境四：掃描後無機會', body:`「本次掃描 <strong>[N]</strong> 支觀察清單的，未發現符合框架進場條件的機會。<br><br>
+      最接近的是 <strong>[股票]</strong>，評分 <strong>[X]</strong>，差距在 <strong>[具體模組]</strong>。<br><br>
+      保留現金等待是合理的選擇。框架的核心是<strong>不強迫進場</strong>。沒有機會的時候，等待就是最好的策略。」`},
+    {t:'情境五：已持倉觸發出場信號', body:`「你持有的 <strong>[股票]</strong> 觸發了 <strong>[出場條件]</strong>。<br><br>
+      <strong>[硬性停損]</strong>：「股價跌破 52 週低 × 0.95，進場假設已失效，建議執行停損。」<br>
+      <strong>[時間停損]</strong>：「已持含 3 個財報季，價格仍未達第一止盈目標，建議降至 50% 倉位，釋放資金等待更好的機會。」<br>
+      <strong>[止盈]</strong>：「已達第一目標，建議賣出 30% 倉位鎖定部分利潤，並將停損線拉至成本價。」`},
+  ];
+  document.getElementById('scenario-templates').innerHTML = scenarios.map(s =>
+    `<div class="scenario"><div class="scenario-t">${s.t}</div><div class="scenario-body">${s.body}</div></div>`
+  ).join('');
+}
+
+function renderFlowAndPrinciples() {
+  const steps = [
+    {bg:'#378ADD',t:'用戶設定觀察清單',p:'首次使用時，讓用戶從預設清單勾選感興趣的股票，或手動輸入代號。這個清單是篩選器的原料，品質決定輸出品質。建議 30–80 支，過多太慢，過少可能錯過機會。'},
+    {bg:'#EF9F27',t:'設定觸發門檻（可選）',p:'用戶可以調整各模組的敏感度：進場最低分數（預設 65）、RSI 門檻（預設 40）、最小上行空間（預設 15%）。不想設定的用戶直接跳過，使用預設值。'},
+    {bg:'#639922',t:'掃描執行',p:'用戶點擊「開始掃描」，系統依序執行四層漏斗。顯示即時進度：「正在分析第 12/50 支...」讓用戶看到進展，不會以為卡住了。'},
+    {bg:'#3C3489',t:'輸出結果',p:'按總分排序輸出三個清單：<br>① 進場機會（總分 ≥ 65）：最多 5 支，附完整分析和話術<br>② 觀察清單（50–64）：附「缺少什麼信號」的說明<br>③ 本次掃描摘要：環境判定、掃描了幾支、通過幾支'},
+    {bg:'#E24B4A',t:'持倉追蹤（每日更新）',p:'對已進場的標的，每天自動檢查三個出場條件：硬性停損是否觸發、是否達到止盈一、是否超過時間停損。觸發任何一個，立即通知用戶並說明原因和建議行動。'},
+  ];
+  document.getElementById('flow-steps-container').innerHTML = `<div class="flow-steps">${steps.map((s,i) =>
+    `<div class="flow-step"><div class="flow-num" style="background:${s.bg}">${i+1}</div><div class="flow-content"><h3>${s.t}</h3><p>${s.p}</p></div></div>`
+  ).join('')}</div>`;
+
+  document.getElementById('principles-container').innerHTML = `<div class="principles">
+    <div class="principle"><h4>透明邏輯</h4><p>每一個建議都說明「為什麼」——哪個模組打了高分、哪個指標觸發了信號。用戶能追蹤邏輯，而不是盲目跟隨。</p></div>
+    <div class="principle"><h4>建議但不命令</h4><p>每個話術都有「若你認同...」的前提。框架是輔助工具，最終決策權始終在用戶手中。避免過度依賴。</p></div>
+    <div class="principle"><h4>量化不確定性</h4><p>每個機會都附上 R:R 和停損位。讓用戶在進場前就知道「最壞的情況是什麼」，而不是事後才面對虧損。</p></div>
+  </div>`;
+}
+
+// ══════════ INIT ══════════
+window.addEventListener('load', () => {
+  renderWatchlistChips();
+  renderPortfolio();
+  renderDemoCards();
+  renderScenarioTemplates();
+  renderFlowAndPrinciples();
+});
+</script>
+</body>
+</html>

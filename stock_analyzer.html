@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>四模組股票引擎 v4.0 全即時</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;background:#f5f4ef;color:#1a1a18;min-height:100vh;}
+.wrap{max-width:820px;margin:0 auto;padding:20px 14px;}
+h1{font-size:17px;font-weight:600;margin-bottom:2px;}
+.sub{font-size:11px;color:#888780;margin-bottom:12px;}
+.arch-note{background:#EAF3DE;border:1px solid #97C459;border-radius:9px;padding:10px 14px;margin-bottom:14px;font-size:11px;color:#3B6D11;line-height:1.7;}
+.macro-bar{display:none;background:#fff;border:1px solid #e8e6df;border-radius:10px;padding:9px 14px;margin-bottom:12px;align-items:center;gap:12px;flex-wrap:wrap;}
+.macro-bar.show{display:flex;}
+.mi{text-align:center;}
+.mi-lbl{font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:#888780;margin-bottom:1px;}
+.mi-val{font-size:13px;font-weight:700;}
+.mi-src{font-size:8px;color:#888780;}
+.refresh-btn{margin-left:auto;font-size:10px;color:#888780;cursor:pointer;text-decoration:underline;}
+.search-row{display:flex;gap:8px;margin-bottom:6px;}
+.search-row input{flex:1;padding:10px 14px;font-size:15px;border:1.5px solid #d3d1c7;border-radius:10px;background:#fff;outline:none;transition:border .15s;}
+.search-row input:focus{border-color:#378ADD;}
+.search-row button{padding:10px 24px;font-size:13px;font-weight:600;border:none;border-radius:10px;background:#1a1a18;color:#fff;cursor:pointer;}
+.search-row button:disabled{opacity:.4;cursor:not-allowed;}
+.hint{font-size:10px;color:#888780;margin-bottom:14px;line-height:1.7;}
+.prog{display:none;background:#fff;border:1px solid #e8e6df;border-radius:10px;padding:14px;margin-bottom:12px;}
+.prog.show{display:block;}
+.prog-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+.prog-lbl{font-size:12px;font-weight:600;}
+.prog-time{font-size:14px;font-weight:700;color:#378ADD;font-variant-numeric:tabular-nums;}
+.steps{display:flex;flex-direction:column;gap:9px;}
+.step{display:flex;align-items:center;gap:10px;}
+.sdot{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;border:2px solid #e8e6df;background:#fff;color:#888780;transition:all .3s;}
+.sdot.run{border-color:#378ADD;color:#378ADD;background:#E6F1FB;}
+.sdot.ok{border-color:#639922;color:#fff;background:#639922;}
+.sdot.warn{border-color:#EF9F27;color:#fff;background:#EF9F27;}
+.sinfo{flex:1;}
+.stitle{font-size:11px;font-weight:600;color:#1a1a18;}
+.sdesc{font-size:10px;color:#888780;margin-top:1px;}
+.sbadge{font-size:10px;font-weight:600;padding:1px 8px;border-radius:20px;}
+.sw{background:#f5f4ef;color:#888780;}
+.sr{background:#E6F1FB;color:#185FA5;}
+.so{background:#EAF3DE;color:#3B6D11;}
+.sa{background:#FAEEDA;color:#854F0B;}
+.prog-bar{height:3px;background:#e8e6df;border-radius:2px;margin-top:10px;overflow:hidden;}
+.prog-fill{height:3px;background:#378ADD;border-radius:2px;transition:width .5s;}
+.err-box{display:none;border-radius:9px;margin-bottom:12px;overflow:hidden;}
+.err-box.show{display:block;}
+.err-head{background:#FCEBEB;color:#A32D2D;padding:9px 14px;font-size:12px;font-weight:600;}
+.err-body{background:#fdf5f5;color:#791F1F;padding:9px 14px;font-size:11px;line-height:1.7;white-space:pre-wrap;}
+.data-ts{display:none;font-size:10px;color:#888780;margin-bottom:8px;}
+.data-ts.show{display:block;}
+.hero{display:none;background:#fff;border:1px solid #e8e6df;border-radius:12px;padding:16px;margin-bottom:10px;}
+.hero.show{display:flex;align-items:center;gap:14px;}
+.circ{width:68px;height:68px;border-radius:50%;border:3px solid;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;}
+.cn{font-size:22px;font-weight:700;line-height:1;}
+.cd{font-size:10px;color:#888780;}
+.hr{flex:1;}
+.ht{font-size:16px;font-weight:600;margin-bottom:3px;}
+.hs{font-size:11px;color:#5f5e5a;line-height:1.6;margin-bottom:9px;}
+.acts{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+.act{border-radius:7px;padding:8px;}
+.at{font-size:10px;font-weight:700;margin-bottom:2px;}
+.ab{font-size:10px;line-height:1.4;}
+.strip{display:none;flex-wrap:wrap;gap:7px;margin-bottom:10px;}
+.strip.show{display:flex;}
+.dc{background:#fff;border:1px solid #e8e6df;border-radius:8px;padding:8px 11px;flex:1;min-width:100px;}
+.dl{font-size:9px;color:#888780;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px;}
+.dv{font-size:15px;font-weight:700;}
+.dv-live{color:#1D9E75;}
+.ds{font-size:9px;color:#888780;margin-top:1px;}
+.mods{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:10px;}
+@media(max-width:540px){.mods{grid-template-columns:1fr;}}
+.mc{background:#fff;border:1px solid #e8e6df;border-radius:11px;padding:12px;}
+.mh{display:flex;align-items:center;gap:7px;margin-bottom:8px;}
+.micon{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;}
+.mt{font-size:12px;font-weight:600;flex:1;}
+.ms{font-size:17px;font-weight:700;}
+.mr{display:flex;align-items:flex-start;gap:5px;padding:4px 0;border-bottom:1px solid #f0ede6;font-size:11px;}
+.mr:last-child{border-bottom:none;}
+.mdot{width:5px;height:5px;border-radius:50%;margin-top:4px;flex-shrink:0;}
+.mtext{flex:1;color:#5f5e5a;line-height:1.45;}
+.badge{font-size:9px;padding:1px 5px;border-radius:4px;font-weight:600;white-space:nowrap;}
+.bg{background:#EAF3DE;color:#3B6D11;}
+.ba{background:#FAEEDA;color:#854F0B;}
+.br{background:#FCEBEB;color:#A32D2D;}
+.bb{background:#E6F1FB;color:#185FA5;}
+.bot{display:none;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:10px;}
+.bot.show{display:grid;}
+@media(max-width:540px){.bot{grid-template-columns:1fr;}}
+.bc{background:#fff;border:1px solid #e8e6df;border-radius:11px;padding:12px;}
+.bc-t{font-size:9px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:#888780;margin-bottom:9px;}
+.kg{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:8px;}
+.kc{background:#f5f4ef;border-radius:7px;padding:8px;text-align:center;}
+.kl{font-size:9px;color:#888780;margin-bottom:2px;}
+.kv{font-size:14px;font-weight:700;}
+.br2{display:flex;justify-content:space-between;font-size:10px;padding:3px 0;border-bottom:1px solid #f0ede6;}
+.br2:last-child{border-bottom:none;}
+.er{display:flex;align-items:flex-start;gap:6px;padding:4px 0;border-bottom:1px solid #f0ede6;font-size:11px;}
+.er:last-child{border-bottom:none;}
+.edot{width:7px;height:7px;border-radius:50%;margin-top:3px;flex-shrink:0;}
+.etxt{flex:1;color:#5f5e5a;line-height:1.4;}
+.warns{display:flex;flex-direction:column;gap:5px;margin-bottom:10px;}
+.wi{padding:7px 11px;border-radius:7px;font-size:11px;}
+.logbox{display:none;background:#1a1a18;border-radius:10px;padding:12px;margin-bottom:14px;}
+.logbox.show{display:block;}
+.logt{font-family:'Courier New',monospace;font-size:10px;color:#9fe1cb;line-height:1.9;white-space:pre-wrap;}
+.note{font-size:10px;color:#888780;text-align:center;padding:10px 0 4px;line-height:1.7;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+    <div>
+      <h1>四模組股票決策引擎 v4.0</h1>
+      <p class="sub">全即時數據版 — Yahoo Finance 即時基本面 + Claude 定性判斷</p>
+    </div>
+    <button onclick="showApiKeyModal()" style="padding:8px 16px;font-size:12px;border:1px solid #d3d1c7;border-radius:6px;background:#f5f4ef;cursor:pointer;">
+      🔑 設定 Claude API
+    </button>
+  </div>
+  <div class="arch-note">
+    <strong>v4.0 數據架構（全部即時）</strong><br>
+    基本面（PE · PEG · 毛利率 · FCF · 分析師目標）→ <strong>Yahoo Finance quoteSummary</strong>（即時）<br>
+    技術面（股價 · RSI · MACD · 52週區間）→ <strong>Yahoo Finance chart</strong>（即時，前端計算）<br>
+    宏觀（VIX · 恐懼貪婪）→ <strong>Yahoo Finance ^VIX + CNN F&G</strong>（即時，快取 30 分鐘）<br>
+    定性判斷（護城河 · 風險 · 催化劑）→ <strong>Claude 分析</strong>（訓練知識，補充定性視角）
+  </div>
+  <div class="macro-bar" id="macro-bar">
+    <div class="mi"><div class="mi-lbl">VIX</div><div class="mi-val" id="mv-vix">-</div><div class="mi-src">Yahoo</div></div>
+    <div class="mi"><div class="mi-lbl">恐懼貪婪</div><div class="mi-val" id="mv-fg">-</div><div class="mi-src">CNN</div></div>
+    <div class="mi"><div class="mi-lbl">市場環境</div><div class="mi-val" id="mv-reg">-</div><div class="mi-src">推算</div></div>
+    <div class="mi"><div class="mi-lbl">Fed 利率</div><div class="mi-val" id="mv-rate">-</div><div class="mi-src">Yahoo</div></div>
+    <div class="mi"><div class="mi-lbl">快取</div><div class="mi-val" id="mv-age" style="font-size:10px;color:#888780">-</div></div>
+    <span class="refresh-btn" onclick="refreshMacro()">重新整理 ↻</span>
+  </div>
+  <div class="search-row">
+    <input type="text" id="ticker" placeholder="MSFT · META · NVDA · AAPL · GOOGL · TSM · AMZN ..." maxlength="12" onkeydown="if(event.key==='Enter')go()">
+    <button id="btn" onclick="go()">分析</button>
+  </div>
+  <p class="hint">所有數據均為即時抓取。預期完成時間：10–20 秒。</p>
+  <div class="prog" id="prog">
+    <div class="prog-hd">
+      <span class="prog-lbl" id="prog-lbl">準備中...</span>
+      <span class="prog-time" id="elapsed">0.0s</span>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="sdot" id="d1">1</div>
+        <div class="sinfo"><div class="stitle">Yahoo Finance 基本面（quoteSummary）</div><div class="sdesc" id="ds1">PE · PEG · 毛利率 · FCF · 分析師目標 · 財報日期</div></div>
+        <span class="sbadge sw" id="b1">等待</span>
+      </div>
+      <div class="step">
+        <div class="sdot" id="d2">2</div>
+        <div class="sinfo"><div class="stitle">Yahoo Finance 技術面（chart）</div><div class="sdesc" id="ds2">股價 · 52週高低 · RSI · MACD（前端計算）</div></div>
+        <span class="sbadge sw" id="b2">等待</span>
+      </div>
+      <div class="step">
+        <div class="sdot" id="d3">3</div>
+        <div class="sinfo"><div class="stitle">宏觀數據（VIX + 恐懼貪婪）</div><div class="sdesc" id="ds3">Yahoo ^VIX · CNN Fear &amp; Greed Index</div></div>
+        <span class="sbadge sw" id="b3">等待</span>
+      </div>
+      <div class="step">
+        <div class="sdot" id="d4">4</div>
+        <div class="sinfo"><div class="stitle">Claude 定性分析（無 web_search）</div><div class="sdesc" id="ds4">護城河評分 · 主要風險 · 催化劑</div></div>
+        <span class="sbadge sw" id="b4">等待</span>
+      </div>
+    </div>
+    <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:3%"></div></div>
+  </div>
+  <div class="err-box" id="err-box"><div class="err-head" id="err-head">錯誤</div><div class="err-body" id="err-body"></div></div>
+  <div class="data-ts" id="data-ts"></div>
+  <div class="hero" id="hero">
+    <div class="circ" id="circ"><div class="cn" id="cn">-</div><div class="cd">/ 100</div></div>
+    <div class="hr"><div class="ht" id="ht">-</div><div class="hs" id="hs">-</div><div class="acts" id="acts"></div></div>
+  </div>
+  <div class="strip" id="strip"></div>
+  <div class="mods" id="mods"></div>
+  <div class="bot" id="bot">
+    <div class="bc"><div class="bc-t">凱利倉位（模組四）</div><div class="kg" id="kg"></div><div id="batches"></div></div>
+    <div class="bc"><div class="bc-t">出場規劃（模組五）</div><div id="exits"></div></div>
+  </div>
+  <div class="warns" id="warns"></div>
+  <div class="logbox" id="logbox"><div class="logt" id="logt"></div></div>
+  <div class="note">⚠ 僅供學習研究，不構成投資建議。數據來自 Yahoo Finance 公開 API，可能有延遲。</div>
+</div>
+
+<script>
+// ── CORS 代理（本地或 Vercel 後端優先）
+async function proxyFetch(url) {
+  console.log(`[proxyFetch] 獲取: ${url.substring(0, 80)}...`);
+
+  // ── 方案 1：本地 /api/proxy（Python yfinance）或 Vercel /api/proxy（Node.js）
+  try {
+    console.log('[proxyFetch] 嘗試後端代理...');
+    const r = await fetch('/api/proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+      signal: AbortSignal.timeout(15000)
+    });
+    if (r.ok) {
+      const data = await r.json();
+      console.log(`✅ [proxyFetch] 後端代理成功`);
+      return data;
+    }
+  } catch(e) {
+    console.log('[proxyFetch] 後端代理失敗:', e.message);
+  }
+
+  // ── 方案 2：第三方 CORS 代理（備用）
+  const proxies = [
+    url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+    url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  ];
+
+  for (const proxyFn of proxies) {
+    try {
+      const proxyUrl = proxyFn(url);
+      const r = await fetch(proxyUrl, { signal: AbortSignal.timeout(12000) });
+      if (r.ok) {
+        const text = await r.text();
+        if (text?.length > 10) {
+          console.log(`✅ [proxyFetch] 第三方代理成功`);
+          return JSON.parse(text);
+        }
+      }
+    } catch(e) { /* try next */ }
+  }
+
+  throw new Error('所有代理均失敗，請檢查網路連接或稍後重試');
+}
+
+// ── Yahoo Finance 基本面（本地 yfinance 或 Vercel）
+async function fetchFundamentals(ticker) {
+  console.log(`[fetchFundamentals] 獲取 ${ticker} 基本面數據`);
+
+  // 優先使用本地 Python yfinance，再回退到 Vercel Node.js 版本
+  const endpoints = [
+    { url: '/api/fundamentals', type: 'Python yfinance (本地)' },
+  ];
+
+  for (const ep of endpoints) {
+    try {
+      console.log(`[fetchFundamentals] 嘗試 ${ep.type}...`);
+      const resp = await fetch(ep.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticker }),
+        signal: AbortSignal.timeout(20000)
+      });
+      if (!resp.ok) continue;
+
+      const q = await resp.json();
+      if (q?.symbol) {
+        console.log(`[fetchFundamentals] ✅ ${ep.type} 成功`, q);
+
+        // 統一字段名（API 返回 trailingPE，但代碼期望 pe_ttm）
+        const normalized = {
+          pe_ttm:              parseFloat((q.trailingPE || 0).toFixed(1)),
+          pe_fwd:              parseFloat((q.forwardPE || 0).toFixed(1)),
+          peg:                 parseFloat((q.pegRatio || 0).toFixed(2)),
+          gross_margin:        q.grossMargins != null ? Math.round(q.grossMargins * 100 * 10) / 10 : 0,
+          operating_margin:    q.operatingMargins != null ? Math.round(q.operatingMargins * 100 * 10) / 10 : 0,
+          net_margin:          q.profitMargins != null ? Math.round(q.profitMargins * 100 * 10) / 10 : 0,
+          fcf:                 formatFCF(q.freeCashflow),
+          fcf_raw:             q.freeCashflow || 0,
+          rev_growth:          q.revenueGrowth != null ? Math.round(q.revenueGrowth * 100 * 10) / 10 : 0,
+          eps_growth:          q.earningsGrowth != null ? Math.round(q.earningsGrowth * 100 * 10) / 10 : 0,
+          analyst_target:      parseFloat((q.targetMeanPrice || 0).toFixed(2)),
+          analyst_low:         parseFloat((q.targetLowPrice || 0).toFixed(2)),
+          analyst_high:        parseFloat((q.targetHighPrice || 0).toFixed(2)),
+          analyst_count:       q.numberOfAnalystOpinions || 0,
+          consensus:           getConsensus(q.recommendationKey),
+          rec_key:             q.recommendationKey || 'N/A',
+          next_earnings:       getEarningsDate(q.earningsTimestamp),
+          sector:              q.sector || 'N/A',
+          industry:            q.industry || 'N/A',
+          employees:           0,
+          market_cap_raw:      q.marketCap || 0,
+          beta:                parseFloat((q.beta || 1).toFixed(2)),
+          dividend_yield:      q.dividendYield != null ? Math.round(q.dividendYield * 100 * 100) / 100 : 0,
+          eq: getEquityQuality(q.grossMargins, q.profitMargins),
+        };
+
+        console.log(`[fetchFundamentals] 標準化結果:`, {
+          pe_ttm: normalized.pe_ttm,
+          pe_fwd: normalized.pe_fwd,
+          peg: normalized.peg,
+          gross_margin: normalized.gross_margin
+        });
+        return normalized;
+      }
+    } catch(e) {
+      console.log(`[fetchFundamentals] ${ep.type} 失敗: ${e.message}`);
+    }
+  }
+
+  // 备选方案：如果 /api/fundamentals 失败，直接使用 proxyFetch + quoteSummary
+  console.log(`[fetchFundamentals] /api/fundamentals 失敗，嘗試 proxyFetch + quoteSummary...`);
+  try {
+    const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=defaultKeyStatistics,summaryDetail,assetProfile`;
+    const data = await proxyFetch(url);
+    const result = data?.quoteSummary?.result?.[0];
+
+    if (!result) throw new Error(`找不到 ${ticker} 的數據`);
+
+    const ks = result.defaultKeyStatistics || {};
+    const sd = result.summaryDetail || {};
+    const ap = result.assetProfile || {};
+
+    console.log(`[fetchFundamentals] ✅ quoteSummary 備選成功`);
+
+    const normalized = {
+      pe_ttm:              parseFloat((ks.trailingPE?.raw || sd.trailingPE?.raw || 0).toFixed(1)),
+      pe_fwd:              parseFloat((ks.forwardPE?.raw || sd.forwardPE?.raw || 0).toFixed(1)),
+      peg:                 parseFloat((ks.pegRatio?.raw || 0).toFixed(2)),
+      gross_margin:        ks.grossMargins?.raw != null ? Math.round(ks.grossMargins.raw * 100 * 10) / 10 : 0,
+      operating_margin:    ks.operatingMargins?.raw != null ? Math.round(ks.operatingMargins.raw * 100 * 10) / 10 : 0,
+      net_margin:          ks.profitMargins?.raw != null ? Math.round(ks.profitMargins.raw * 100 * 10) / 10 : 0,
+      fcf:                 formatFCF(ks.freeCashflow?.raw),
+      fcf_raw:             ks.freeCashflow?.raw || 0,
+      rev_growth:          ks.revenueGrowth?.raw != null ? Math.round(ks.revenueGrowth.raw * 100 * 10) / 10 : 0,
+      eps_growth:          ks.earningsGrowth?.raw != null ? Math.round(ks.earningsGrowth.raw * 100 * 10) / 10 : 0,
+      analyst_target:      parseFloat((ks.targetMeanPrice?.raw || 0).toFixed(2)),
+      analyst_low:         parseFloat((ks.targetLowPrice?.raw || 0).toFixed(2)),
+      analyst_high:        parseFloat((ks.targetHighPrice?.raw || 0).toFixed(2)),
+      analyst_count:       ks.numberOfAnalystOpinions?.raw || 0,
+      consensus:           getConsensus(ks.recommendationKey),
+      rec_key:             ks.recommendationKey || 'N/A',
+      next_earnings:       getEarningsDate(ks.nextEarningsDate?.raw),
+      sector:              ap.sector || 'N/A',
+      industry:            ap.industry || 'N/A',
+      employees:           0,
+      market_cap_raw:      ks.marketCap?.raw || 0,
+      beta:                parseFloat((ks.beta?.raw || 1).toFixed(2)),
+      dividend_yield:      sd.dividendYield?.raw != null ? Math.round(sd.dividendYield.raw * 100 * 100) / 100 : 0,
+      eq: getEquityQuality(ks.grossMargins?.raw, ks.profitMargins?.raw),
+    };
+
+    console.log(`[fetchFundamentals] 備選標準化結果:`, {
+      pe_ttm: normalized.pe_ttm,
+      pe_fwd: normalized.pe_fwd,
+      peg: normalized.peg,
+      gross_margin: normalized.gross_margin
+    });
+
+    return normalized;
+  } catch(fallbackError) {
+    console.error(`[fetchFundamentals] 所有方案失敗`, fallbackError);
+    throw new Error(`找不到 ${ticker} 的數據，請確認股票代號`);
+  }
+}
+
+// 輔助函數
+function formatFCF(fcf) {
+  if (!fcf || fcf === 0) return 'N/A';
+  return fcf >= 1e12 ? '$'+(fcf/1e12).toFixed(1)+'T'
+       : fcf >= 1e9  ? '$'+(fcf/1e9).toFixed(1)+'B'
+       : fcf >= 1e6  ? '$'+(fcf/1e6).toFixed(0)+'M'
+       : 'N/A';
+}
+
+function getConsensus(key) {
+  if (!key) return 'N/A';
+  const k = key.toLowerCase();
+  return k.includes('buy') && k.includes('strong') ? 'Strong Buy'
+       : k === 'buy' ? 'Buy'
+       : k === 'hold' ? 'Hold'
+       : k.includes('sell') && k.includes('strong') ? 'Strong Sell'
+       : k.includes('sell') ? 'Sell'
+       : 'N/A';
+}
+
+function getEarningsDate(ts) {
+  return ts ? new Date(ts * 1000).toISOString().slice(0, 10) : 'N/A';
+}
+
+function getEquityQuality(gm, pm) {
+  if (!gm || !pm) return '低';
+  const gm_pct = gm * 100;
+  const pm_pct = pm * 100;
+  return gm_pct >= 60 && pm_pct >= 15 ? '高' : gm_pct >= 40 ? '中' : '低';
+}
+
+// ── Yahoo Finance chart（技術面 + 即時股價）
+async function fetchChart(ticker) {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1y`;
+  const data = await proxyFetch(url);
+  const result = data?.chart?.result?.[0];
+  if (!result) throw new Error('Chart 數據為空');
+  const meta   = result.meta || {};
+  const quotes = result.indicators?.quote?.[0] || {};
+  const closes = (quotes.close || []).filter(v => v != null && v > 0);
+  const price      = parseFloat((meta.regularMarketPrice || meta.previousClose || 0).toFixed(2));
+  const w52High    = closes.length ? parseFloat(Math.max(...closes).toFixed(2)) : 0;
+  const w52Low     = closes.length ? parseFloat(Math.min(...closes).toFixed(2)) : 0;
+  const rsiVal     = parseFloat(calcRSI(closes, 14).toFixed(1));
+  const macdResult = calcMACD(closes);
+  const mktcap     = meta.marketCap ? fmtCap(meta.marketCap) : 'N/A';
+
+  // 漲幅計算：優先用 Yahoo 官方數據，否則自己算
+  let change_pct = 0;
+  if (meta.regularMarketChangePercent != null) {
+    // Yahoo 直接提供的漲幅百分比
+    change_pct = parseFloat(meta.regularMarketChangePercent.toFixed(2));
+  } else if (meta.previousClose && meta.previousClose > 0) {
+    // 自己計算：(現價 - 前收) / 前收
+    change_pct = parseFloat(((price - meta.previousClose) / meta.previousClose * 100).toFixed(2));
+  }
+
+  return {
+    price,
+    week52_high: w52High,
+    week52_low:  w52Low,
+    rsi:         rsiVal,
+    rsi_signal:  rsiVal < 30 ? '超賣' : rsiVal > 70 ? '超買' : '正常',
+    macd:        macdResult.signal,
+    macd_hist:   macdResult.histogram,
+    mktcap,
+    volume:      meta.regularMarketVolume || 0,
+    prev_close:  parseFloat((meta.previousClose || 0).toFixed(2)),
+    change_pct,
+  };
+}
+
+// ── 宏觀數據：VIX（Yahoo）+ F&G（CNN）
+var macroCache = null, macroTime = null;
+const MACRO_TTL = 5 * 60 * 1000;  // 5 分鐘快取（宏觀數據變化快）
+
+async function fetchMacro() {
+  if (macroCache && macroTime && (Date.now()-macroTime) < MACRO_TTL) return macroCache;
+  const [vix, fg, fedRate] = await Promise.all([fetchVIX(), fetchFearGreed(), fetchFedRate()]);
+  const regime = inferRegime(vix, fg);
+  macroCache = { vix, fear_greed: fg, fed_rate: fedRate, regime };
+  macroTime = Date.now();
+  showMacroBanner(macroCache);
+  return macroCache;
+}
+
+async function fetchVIX() {
+  try {
+    const url = 'https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX?interval=1d&range=5d';
+    const data = await proxyFetch(url);
+    const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
+    return price ? parseFloat(price.toFixed(2)) : 20;
+  } catch(e) { return 20; }
+}
+
+async function fetchFearGreed() {
+  try {
+    const url = 'https://production.dataviz.cnn.io/index/fearandgreed/graphdata';
+    const data = await proxyFetch(url);
+    const score = data?.fear_and_greed?.score;
+    return score ? Math.round(score) : 50;
+  } catch(e) { return 50; }
+}
+
+async function fetchFedRate() {
+  try {
+    const url = 'https://query1.finance.yahoo.com/v8/finance/chart/%5EIRX?interval=1d&range=5d';
+    const data = await proxyFetch(url);
+    const rate = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
+    if (rate) {
+      const low  = Math.floor(rate * 4) / 4;
+      const high = low + 0.25;
+      return `${low.toFixed(2)}–${high.toFixed(2)}%`;
+    }
+    return '3.50–3.75%';
+  } catch(e) { return '3.50–3.75%'; }
+}
+
+function inferRegime(vix, fg) {
+  if (vix < 15 && fg > 55) return 'Goldilocks';
+  if (vix > 25 && fg < 30) return 'Risk-off';
+  if (vix > 20 && fg < 45) return 'Stagflation';
+  return 'Goldilocks';
+}
+
+function showMacroBanner(d) {
+  document.getElementById('mv-vix').textContent = d.vix ?? '-';
+  const fg = d.fear_greed;
+  const el = document.getElementById('mv-fg');
+  el.textContent = (fg ?? '-') + (fg != null ? '/100' : '');
+  el.style.color = fg <= 25 ? '#A32D2D' : fg <= 45 ? '#854F0B' : '#3B6D11';
+  document.getElementById('mv-reg').textContent = d.regime ?? '-';
+  document.getElementById('mv-rate').textContent = d.fed_rate ?? '-';
+  const mins = macroTime ? Math.round((Date.now()-macroTime)/60000) : 0;
+  document.getElementById('mv-age').textContent = mins < 1 ? '剛剛' : mins+'min 前';
+  document.getElementById('macro-bar').classList.add('show');
+}
+
+function refreshMacro() { macroCache = null; macroTime = null; fetchMacro().then(showMacroBanner); }
+
+// ── API Key 管理（本地 + Vercel 環境變數支持）
+async function showApiKeyModal() {
+  // 檢查是否在 Vercel（自動使用環境變數）
+  const isVercel = window.location.hostname.includes('vercel.app');
+
+  if (isVercel) {
+    // Vercel：嘗試從後端檢查環境變數
+    try {
+      const resp = await fetch('/api/check-key');
+      const data = await resp.json();
+      if (data.hasKey) {
+        alert('✅ 已檢測到 Vercel 環境變數 ANTHROPIC_API_KEY\n\nClaude API 將使用伺服器端密鑰');
+        return;
+      }
+    } catch(e) {}
+    alert('⚠️ 在 Vercel 上請設定環境變數 ANTHROPIC_API_KEY\n\n步驟：\n1. Vercel Dashboard → Settings → Environment Variables\n2. 添加 ANTHROPIC_API_KEY\n3. 重新部署');
+    return;
+  }
+
+  // 本地：使用 localStorage
+  const stored = localStorage.getItem('anthropic_api_key') || '';
+  const newKey = prompt('輸入您的 Claude API Key：\n\n💡 https://console.anthropic.com/account/keys', stored);
+  if (newKey !== null) {
+    if (newKey.trim() === '') {
+      localStorage.removeItem('anthropic_api_key');
+      alert('✅ API Key 已清除');
+    } else {
+      localStorage.setItem('anthropic_api_key', newKey.trim());
+      alert('✅ API Key 已保存（本地瀏覽器存儲）');
+    }
+  }
+}
+
+// ── Claude 定性分析
+async function fetchQualitative(ticker, sector, industry) {
+  // 策略：
+  // 1. Vercel：使用環境變數 ANTHROPIC_API_KEY（後端自動提供）
+  // 2. 本地：使用 localStorage 的 apiKey（用戶手動輸入）
+  const localApiKey = localStorage.getItem('anthropic_api_key');
+
+  if (!localApiKey) {
+    // 檢查是否在 Vercel（嘗試調用後端，讓環境變數生效）
+    const isVercel = window.location.hostname.includes('vercel.app');
+    if (!isVercel) {
+      console.warn('未偵測到 API Key，使用預設護城河評分。點擊 🔑 設定 Claude API 按鈕可啟用。');
+      return { moat: 60, insider: '中性', revision: '持平', risks: ['需手動確認'], catalysts: ['需手動確認'] };
+    }
+    // Vercel：繼續，讓後端使用環境變數
+  }
+  const prompt = `股票 "${ticker}" 是 ${sector} 行業（${industry}）。
+
+請根據您的知識，只評估以下定性指標，直接回傳有效的 JSON，不要其他文字：
+
+{
+  "moat": 50,
+  "insider": "中性",
+  "revision": "持平",
+  "risks": ["風險1", "風險2"],
+  "catalysts": ["催化劑1", "催化劑2"]
+}
+
+其中：
+- moat: 0-100 的護城河強度
+- insider: "買進" / "中性" / "賣出"
+- revision: "上調" / "持平" / "下調"
+- risks: 陣列，主要風險
+- catalysts: 陣列，可能催化劑`;
+
+  try {
+    console.log(`[fetchQualitative] 調用 /api/claude 分析 ${ticker}...`);
+
+    // 發送請求給後端代理
+    // 本地 (simple_proxy.py)：使用前端的 localApiKey
+    // Vercel (api/claude.js)：使用環境變數，忽略前端的 apiKey
+    const body = { prompt };
+    if (localApiKey) body.apiKey = localApiKey;
+
+    const resp = await fetch('/api/claude', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    console.log(`[fetchQualitative] 代理回應狀態: ${resp.status}`);
+
+    if (!resp.ok) {
+      const errData = await resp.json().catch(() => ({ error: `HTTP ${resp.status}` }));
+      console.error(`[fetchQualitative] 代理錯誤 ${resp.status}:`, errData);
+      throw new Error(`代理返回 ${resp.status}: ${errData.error?.message || JSON.stringify(errData)}`);
+    }
+
+    const data = await resp.json();
+    console.log(`[fetchQualitative] 原始回應:`, data);
+
+    let txt = '';
+    for (const b of data.content || []) {
+      if (b.type === 'text') txt += b.text;
+    }
+
+    console.log(`[fetchQualitative] 提取文本:`, txt);
+    const result = extractJSON(txt);
+    console.log(`[fetchQualitative] ✅ 成功解析:`, result);
+    return result;
+
+  } catch(e) {
+    console.error(`[fetchQualitative] 完整錯誤:`, e);
+    console.warn(`[fetchQualitative] 失敗 (${e.message})，使用預設值`);
+    return {
+      moat: 60,
+      insider: '中性',
+      revision: '持平',
+      risks: ['無法連接 Claude API'],
+      catalysts: ['本地請設定 API Key，Vercel 請檢查環境變數']
+    };
+  }
+}
+
+// ── 工具函數
+function calcRSI(closes, period) {
+  if (closes.length < period + 1) return 50;
+  let gains = 0, losses = 0;
+  for (let i = closes.length - period; i < closes.length; i++) {
+    const d = closes[i] - closes[i-1];
+    if (d > 0) gains += d; else losses -= d;
+  }
+  const ag = gains / period, al = losses / period;
+  if (al === 0) return 100;
+  return 100 - 100 / (1 + ag / al);
+}
+
+function calcMACD(closes) {
+  if (closes.length < 26) return { signal: '中性', histogram: 0 };
+  const ema12 = calcEMA(closes, 12);
+  const ema26 = calcEMA(closes, 26);
+  const macdLine = ema12 - ema26;
+  const macdHistory = [];
+  for (let i = Math.max(0, closes.length - 35); i < closes.length; i++) {
+    const e12 = calcEMA(closes.slice(0, i+1), 12);
+    const e26 = calcEMA(closes.slice(0, i+1), 26);
+    macdHistory.push(e12 - e26);
+  }
+  const signalLine = calcEMA(macdHistory, 9);
+  const histogram = macdLine - signalLine;
+  return { signal: histogram > 0 ? '買入' : '賣出', histogram: parseFloat(histogram.toFixed(4)) };
+}
+
+function calcEMA(arr, period) {
+  if (!arr || arr.length === 0) return 0;
+  if (arr.length < period) return arr[arr.length-1] || 0;
+  const k = 2 / (period + 1);
+  let ema = arr.slice(0, period).reduce((a,b) => a+b, 0) / period;
+  for (let i = period; i < arr.length; i++) ema = arr[i] * k + ema * (1-k);
+  return ema;
+}
+
+function fmtCap(n) {
+  if (n >= 1e12) return '$'+(n/1e12).toFixed(2)+'T';
+  if (n >= 1e9)  return '$'+(n/1e9).toFixed(1)+'B';
+  return '$'+(n/1e6).toFixed(0)+'M';
+}
+
+function extractJSON(text) {
+  if (!text) throw new Error('空回應');
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] !== '{') continue;
+    let depth=0, inStr=false, esc=false;
+    for (let j=i; j<text.length; j++) {
+      const c=text[j];
+      if (esc){esc=false;continue;}
+      if (c==='\\'&&inStr){esc=true;continue;}
+      if (c==='"'){inStr=!inStr;continue;}
+      if (inStr) continue;
+      if (c==='{') depth++;
+      if (c==='}'&&--depth===0) {
+        const raw=text.slice(i,j+1);
+        const clean=raw.replace(/,(\s*[}\]])/g,'$1').replace(/[\x00-\x1F\x7F]/g,' ');
+        try{return JSON.parse(clean);}
+        catch(e){try{return Function('"use strict";return ('+clean+')')();}catch(e2){throw new Error(e.message);}}
+      }
+    }
+  }
+  throw new Error('找不到 JSON');
+}
+
+// ── 進度條
+var t0=0, elTimer=null;
+function setStep(n, state, badge, desc) {
+  const dot=document.getElementById('d'+n), b=document.getElementById('b'+n), d=document.getElementById('ds'+n);
+  dot.className='sdot '+(state==='run'?'run':state==='ok'?'ok':state==='warn'?'warn':'');
+  dot.textContent=state==='ok'?'✓':state==='warn'?'!':state==='run'?'▶':n;
+  b.className='sbadge '+(state==='run'?'sr':state==='ok'?'so':state==='warn'?'sa':'sw');
+  b.textContent=badge;
+  if(desc) d.textContent=desc;
+}
+function setProgress(pct, label) {
+  document.getElementById('prog-fill').style.width=pct+'%';
+  if(label) document.getElementById('prog-lbl').textContent=label;
+}
+
+// ── 主流程
+async function go() {
+  const ticker=document.getElementById('ticker').value.trim().toUpperCase();
+  if (!ticker){document.getElementById('ticker').focus();return;}
+  if (!/^[A-Z.\-\^]{1,12}$/.test(ticker)){showErr('格式錯誤','請輸入正確的英文股票代號（如 MSFT、META、NVDA）');return;}
+  const btn=document.getElementById('btn');
+  btn.disabled=true; btn.textContent='分析中...';
+  resetUI();
+  document.getElementById('prog').className='prog show';
+  t0=performance.now();
+  elTimer=setInterval(()=>{
+    document.getElementById('elapsed').textContent=((performance.now()-t0)/1000).toFixed(1)+'s';
+  },200);
+  setProgress(3,'啟動...');
+  setStep(1,'run','搜尋中...');
+  setStep(2,'run','搜尋中...');
+  setStep(3, macroCache && (Date.now()-macroTime)<MACRO_TTL ? 'ok':'run',
+            macroCache && (Date.now()-macroTime)<MACRO_TTL ? '快取':'搜尋中...');
+  let fund, chart, macro, qualitative;
+  try {
+    const [f, c, m] = await Promise.all([
+      fetchFundamentals(ticker).then(d=>{
+        setStep(1,'ok',((performance.now()-t0)/1000).toFixed(1)+'s',
+          `PE ${d.pe_ttm}x · PEG ${d.peg} · 毛利 ${d.gross_margin}%`);
+        setProgress(40);
+        return d;
+      }).catch(e=>{
+        setStep(1,'warn','失敗','quoteSummary 無數據，改用 chart 估算');
+        throw e;
+      }),
+      fetchChart(ticker).then(d=>{
+        setStep(2,'ok',((performance.now()-t0)/1000).toFixed(1)+'s',
+          `$${d.price} · RSI ${d.rsi} · ${d.change_pct>=0?'+':''}${d.change_pct}%`);
+        setProgress(65);
+        return d;
+      }).catch(e=>{
+        setStep(2,'warn','失敗','chart 無法取得');
+        return {price:0, week52_high:0, week52_low:0, rsi:50, rsi_signal:'正常', macd:'中性', macd_hist:0, mktcap:'N/A', change_pct:0};
+      }),
+      fetchMacro().then(d=>{
+        setStep(3,'ok', macroCache&&(Date.now()-macroTime)<5000?'快取':((performance.now()-t0)/1000).toFixed(1)+'s',
+          `VIX ${d.vix} · F&G ${d.fear_greed}/100 · ${d.regime}`);
+        return d;
+      }).catch(()=>{
+        setStep(3,'warn','估算','');
+        return {vix:20, fear_greed:50, fed_rate:'3.50–3.75%', regime:'Goldilocks'};
+      }),
+    ]);
+    fund=f; chart=c; macro=m;
+    // 診斷：顯示獲取到的基本面數據
+    console.log(`[診斷] ${ticker} 基本面數據:`, {
+      pe_ttm: fund.pe_ttm,
+      pe_fwd: fund.pe_fwd,
+      peg: fund.peg,
+      gross_margin: fund.gross_margin,
+      sector: fund.sector,
+      industry: fund.industry
+    });
+  } catch(e) {
+    clearInterval(elTimer);
+    showErr('基本面數據取得失敗', e.message + '\n\n可能原因：\n1. 股票代號錯誤（請確認如 MSFT 而非 microsoft）\n2. CORS 代理暫時不可用，請稍後重試\n3. 此股票在 Yahoo Finance 無數據（如私人公司）');
+    document.getElementById('prog').className='prog';
+    btn.disabled=false; btn.textContent='分析';
+    return;
+  }
+  setStep(4,'run','分析中...');
+  setProgress(80,'Claude 定性分析...');
+  qualitative = await fetchQualitative(ticker, fund.sector||'科技', fund.industry||'軟體');
+  setStep(4,'ok',((performance.now()-t0)/1000).toFixed(1)+'s',
+    `護城河 ${qualitative.moat}/100 · ${qualitative.risks.length} 項風險`);
+  setProgress(95,'計算框架...');
+  const s = Object.assign({ ticker }, fund, chart, qualitative);
+  render(s, macro);
+  setProgress(100,'分析完成 ✓');
+  clearInterval(elTimer);
+  const elapsed = ((performance.now()-t0)/1000).toFixed(1);
+  document.getElementById('elapsed').textContent = elapsed+'s';
+  document.getElementById('prog-lbl').textContent = '分析完成 ✓';
+  const ts = document.getElementById('data-ts');
+  ts.textContent = `數據時間：${new Date().toLocaleString('zh-TW')} · 基本面來自 Yahoo Finance（即時）· 技術面前端計算`;
+  ts.className = 'data-ts show';
+  btn.disabled=false; btn.textContent='分析';
+}
+
+// ── 計算 + 渲染
+function render(s, macro) {
+  console.log(`[render] 收到的基本面數據:`, {
+    ticker: s.ticker,
+    pe_ttm: s.pe_ttm,
+    pe_fwd: s.pe_fwd,
+    peg: s.peg,
+    gross_margin: s.gross_margin
+  });
+  const m=macro||{};
+  const regime=m.regime||'Goldilocks';
+  const vix=+(m.vix)||20;
+  const fg=+(m.fear_greed)||50;
+  const rgMul={Goldilocks:1.0,Stagflation:0.70,'Deflation Fear':0.80,'Risk-off':0.30};
+  const mul=rgMul[regime]||1.0;
+  // M1
+  let m1=15;
+  if(fg<=25)m1+=35;else if(fg<=45)m1+=20;
+  if(vix>20)m1+=20;
+  const m1s=Math.min(100,Math.round(m1*mul));
+  // Bayes p
+  let p=0.50;
+  if(s.revision==='上調')p+=0.07;
+  if(s.insider==='買進')p+=0.06;
+  if(s.eq==='高')p+=0.05;
+  if((s.consensus||'').toLowerCase().includes('strong buy'))p+=0.07;
+  const price=+(s.price)||0;
+  const target=+(s.analyst_target)||0;
+  const upPct=(target&&price)?(target-price)/price*100:0;
+  if(upPct>=30)p+=0.06;
+  p=Math.min(0.85,Math.max(0.25,p));
+  // M2
+  const peg=+(s.peg)||99;
+  const gm=+(s.gross_margin)||0;
+  let m2=0;
+  if(peg<=1)m2+=30;else if(peg<=1.5)m2+=18;else if(peg<=2)m2+=8;
+  if(gm>=70)m2+=15;else if(gm>=50)m2+=8;
+  if(upPct>=40)m2+=20;else if(upPct>=20)m2+=12;else if(upPct>=10)m2+=6;
+  if((+(s.eps_growth)||0)>=20)m2+=15;else if((+(s.eps_growth)||0)>=10)m2+=8;
+  if(s.eq==='高')m2+=10;else if(s.eq==='中')m2+=5;
+  if((s.consensus||'').toLowerCase().includes('strong buy'))m2+=10;
+  const m2s=Math.min(100,m2);
+  // M3 - 三維確認（動能、籌碼、支撐）
+  const rsi=+(s.rsi)||50;
+  let m3=0;
+  if(rsi<20)m3+=40;else if(rsi<30)m3+=28;else if(rsi<40)m3+=15;
+  if(s.macd==='買入')m3+=25;else if(s.macd==='中性')m3+=10;
+  const moat=+(s.moat)||50;
+  if(moat>=70)m3+=20;else if(moat>=50)m3+=10;
+  const m3s=Math.min(100,m3);
+  // 三維共振：① 動能（RSI）② 籌碼（MACD）③ 護城河（Moat）
+  const confirmMom = rsi<35;  // 動能層：RSI 超賣
+  const confirmMacd = s.macd==='買入';  // 籌碼層：MACD 買入訊號
+  const confirmMoat = moat>=50;  // 護城河層：護城河評分中上
+  const align = [confirmMom, confirmMacd, confirmMoat].filter(Boolean).length;
+  const alignLabels = [
+    confirmMom ? '✓ 動能(RSI<35)' : '✗ 動能',
+    confirmMacd ? '✓ 籌碼(MACD買入)' : '✗ 籌碼',
+    confirmMoat ? '✓ 護城河(≥50)' : '✗ 護城河'
+  ];
+  // Kelly
+  const w52l=+(s.week52_low)||(price*0.82);
+  const dPct=price&&w52l?Math.max(1,(price-w52l)/price*100):20;
+  const b=Math.max(0.5,upPct/dPct);
+  const fullK=Math.max(0,(p*b-(1-p))/b);
+  const dynK=vix>30?0.125:vix>25?0.20:0.25;
+  const alMul=align>=3?1:align>=2?0.5:0.15;
+  const pos=Math.min(0.12,fullK*dynK*alMul);
+  const m4s=Math.min(100,Math.round(pos*750+(b>=2?20:b>=1.5?10:0)));
+  // Exit
+  const fv=+(s.fair_value)||target||(price*1.4);
+  const stopL=w52l*0.95;
+  const tp1=price+(fv-price)*0.5;
+  const tp2=price+(fv-price)*0.75;
+  const rr=(price&&stopL&&price>stopL)?(fv-price)/(price-stopL):0;
+  const m5s=rr>=2?80:rr>=1.5?60:rr>=1?40:20;
+  const total=Math.round(m1s*0.20+m2s*0.30+m3s*0.25+m4s*0.15+m5s*0.10);
+  const col=total>=72?'#639922':total>=50?'#EF9F27':'#E24B4A';
+  const title=total>=72?'強力進場信號':total>=50?'條件進場，等待確認':'暫緩，加入觀察清單';
+  const sub=total>=72
+    ?`五模組高度一致。建議倉位 ${(pos*100).toFixed(1)}%，分三批執行。停損 $${f2(stopL)}，目標 $${f2(fv)}。`
+    :total>=50
+    ?`部分模組未對齊，以 ${(pos*0.3*100).toFixed(1)}% 試探，等待底背離確認後加倉。`
+    :`信號不足，加入觀察清單，90 天後重評估。`;
+  const ad=total>=72
+    ?[['#EAF3DE','#3B6D11','立即執行',`第一批 ${(pos*0.3*100).toFixed(1)}%，停損 $${f2(stopL)}`],
+      ['#E6F1FB','#185FA5','等底背離',`第二批 ${(pos*0.4*100).toFixed(1)}%`],
+      ['#EEEDFE','#3C3489','止盈規劃',`$${f2(tp1)} → $${f2(fv)}`]]
+    :total>=50
+    ?[['#FAEEDA','#854F0B','小批試探',`${(pos*0.3*100).toFixed(1)}% 試探`],
+      ['#FAEEDA','#854F0B','加強監控','每週重跑框架'],
+      ['#FAEEDA','#854F0B','設觸發點','寫下加倉條件']]
+    :[['#FCEBEB','#A32D2D','不進場','等待信號改善'],
+      ['#FCEBEB','#A32D2D','觀察清單','90天後重評'],
+      ['#FCEBEB','#A32D2D','尋更佳機會','掃描其他標的']];
+  const circ=document.getElementById('circ');
+  circ.style.borderColor=col;
+  const cn=document.getElementById('cn'); cn.textContent=total; cn.style.color=col;
+  document.getElementById('ht').textContent=title; document.getElementById('ht').style.color=col;
+  document.getElementById('hs').textContent=sub;
+  document.getElementById('acts').innerHTML=ad.map(([bg,tc,t,bx])=>
+    `<div class="act" style="background:${bg}"><div class="at" style="color:${tc}">${t}</div><div class="ab" style="color:${tc}">${bx}</div></div>`
+  ).join('');
+  document.getElementById('hero').classList.add('show');
+  // Strip
+  const changeSym = s.change_pct>=0?'▲':'▼';
+  const changeCol = s.change_pct>=0?'#1D9E75':'#A32D2D';
+  document.getElementById('strip').innerHTML=[
+    {l:'股價',   v:`$${price}`, s:`<span style="color:${changeCol}">${changeSym}${Math.abs(s.change_pct||0).toFixed(2)}%</span>  ${s.mktcap}`, live:true},
+    {l:'PE / Fwd',v:`${s.pe_ttm||'N/A'} / ${s.pe_fwd||'N/A'}x`, s:'即時數據'},
+    {l:'PEG',    v:peg<90?peg:'N/A', s:peg<=1?'極佳買點':peg<=1.5?'合理':'偏貴'},
+    {l:'毛利率', v:`${gm||'N/A'}%`, s:gm>=60?'高護城河':'一般'},
+    {l:'RSI 14', v:`${s.rsi||'N/A'}`, s:s.rsi_signal||'', live:true},
+    {l:'分析師目標',v:`$${target||'N/A'}`, s:`+${upPct.toFixed(0)}%  ${s.analyst_count||'N/A'}位`},
+  ].map(c=>`<div class="dc"><div class="dl">${c.l}</div><div class="dv${c.live?' dv-live':''}">${c.v}</div><div class="ds">${c.s}</div></div>`).join('');
+  document.getElementById('strip').classList.add('show');
+  const sc2c=n=>n>=65?'#639922':n>=40?'#EF9F27':'#E24B4A';
+  const sc2b=n=>n>=65?'#EAF3DE':n>=40?'#FAEEDA':'#FCEBEB';
+  const bd=(t,c)=>`<span class="badge ${c}">${t}</span>`;
+  document.getElementById('mods').innerHTML=[
+    {num:'①',title:'宏觀環境',score:m1s,rows:[
+      {t:`環境：${regime}（PEG容忍度乘數 ×${mul.toFixed(2)}）`,b:mul>=1?bd('支持','bg'):bd('收縮','ba')},
+      {t:`恐懼貪婪 ${fg}/100  （CNN 即時）`,b:fg<=25?bd('極度恐懼','br'):fg<=45?bd('恐懼','ba'):bd('正常','bg')},
+      {t:`VIX ${vix}  （Yahoo 即時）`,b:vix>30?bd('高警戒','br'):vix>20?bd('警覺','ba'):bd('正常','bg')},
+      {t:`Fed ${m.fed_rate||'N/A'}  （T-bill 推算）`,b:bd('利率環境','ba')},
+    ]},
+    {num:'②',title:'估值與護城河',score:m2s,rows:[
+      {t:`PEG ${peg<90?peg:'N/A'}x  ${s.pe_ttm||'N/A'}x TTM  ${s.pe_fwd||'N/A'}x Fwd`,b:peg<=1?bd('優質','bg'):peg<=1.5?bd('合理','ba'):bd('偏貴','br')},
+      {t:`毛利 ${gm||'N/A'}%  淨利 ${s.net_margin||'N/A'}%  FCF ${s.fcf||'N/A'}`,b:gm>=60?bd('高護城河','bg'):bd('一般','ba')},
+      {t:`勝率 p=${(p*100).toFixed(0)}%  Rev成長 ${s.rev_growth||'N/A'}%  EPS成長 ${s.eps_growth||'N/A'}%`,b:p>=0.65?bd('高勝率','bg'):bd('中性','bb')},
+      {t:`目標 $${target||'N/A'}（+${upPct.toFixed(0)}%）  ${s.consensus||'N/A'}  ${s.analyst_count||'N/A'} 位分析師`,b:bd('Yahoo即時','bb')},
+    ]},
+    {num:'③',title:'技術籌碼',score:m3s,rows:[
+      {t:`RSI ${s.rsi||'N/A'}（${s.rsi_signal||'N/A'}）  MACD ${s.macd||'N/A'}`,b:rsi<30?bd('超賣','br'):rsi<45?bd('偏低','ba'):bd('正常','bg')},
+      {t:`三維共振 ${align}/3：${alignLabels.join('  ')}`,b:align>=3?bd('完全對齊','bg'):align>=2?bd('雙重確認','ba'):bd('單一信號','br')},
+      {t:`52W：$${f2(s.week52_low)}–$${f2(s.week52_high)}  Beta ${s.beta||'N/A'}`,b:bd('技術支撐','bb')},
+      {t:`護城河 ${moat}/100（Claude 評估）  盈餘品質 ${s.eq||'N/A'}`,b:moat>=70?bd('強','bg'):moat>=50?bd('中','ba'):bd('弱','br')},
+      {t:`下次財報：${s.next_earnings||'N/A'}  配息率 ${s.dividend_yield||0}%`,b:bd('關鍵觀察','ba')},
+    ]},
+    {num:'④',title:'凱利倉位',score:m4s,rows:[
+      {t:`賠率 b=${b.toFixed(2)}x（上行 ${upPct.toFixed(0)}% ÷ 下行 ${dPct.toFixed(0)}%）`,b:b>=2?bd('佳','bg'):b>=1.5?bd('尚可','ba'):bd('不足','br')},
+      {t:`Full Kelly ${(fullK*100).toFixed(0)}%  × K=${dynK}  × 共振×${alMul}`,b:bd('計算','bb')},
+      {t:`建議最大倉位 ${(pos*100).toFixed(1)}%`,b:pos>=0.06?bd('可配置','bg'):pos>=0.02?bd('少量','ba'):bd('近零','br')},
+      {t:`R:R=1:${rr.toFixed(2)}`,b:rr>=2?bd('優質','bg'):rr>=1.5?bd('可接受','ba'):bd('偏低','br')},
+    ]},
+  ].map(d=>`
+    <div class="mc">
+      <div class="mh">
+        <div class="micon" style="background:${sc2b(d.score)};color:${sc2c(d.score)}">${d.num}</div>
+        <div class="mt">${d.title}</div>
+        <div class="ms" style="color:${sc2c(d.score)}">${d.score}</div>
+      </div>
+      ${d.rows.map(r=>`<div class="mr"><div class="mdot" style="background:${sc2c(d.score)}"></div><div class="mtext">${r.t}</div>${r.b}</div>`).join('')}
+    </div>
+  `).join('');
+  document.getElementById('kg').innerHTML=[
+    {l:'賠率 b',v:b.toFixed(2)+'x'},{l:'Full Kelly',v:(fullK*100).toFixed(0)+'%'},
+    {l:'動態 K',v:dynK},{l:'建議倉位',v:(pos*100).toFixed(1)+'%'},
+  ].map(c=>`<div class="kc"><div class="kl">${c.l}</div><div class="kv">${c.v}</div></div>`).join('');
+  document.getElementById('batches').innerHTML=[
+    ['第一批（立即）',(pos*0.3*100).toFixed(1)+'%'],
+    ['第二批（底背離後）',(pos*0.4*100).toFixed(1)+'%'],
+    ['第三批（財報後）',(pos*0.3*100).toFixed(1)+'%'],
+  ].map(([l,v])=>`<div class="br2"><span style="color:#5f5e5a">${l}</span><span style="font-weight:600">${v}</span></div>`).join('');
+  document.getElementById('exits').innerHTML=[
+    {c:'#E24B4A',t:'硬性停損',b:`$${f2(stopL)}（52W低×0.95）`},
+    {c:'#EF9F27',t:'止盈一（50%上行）',b:`$${f2(tp1)}，減持30%`},
+    {c:'#EF9F27',t:'移動停損（75%上行）',b:`$${f2(tp2)}，拉至成本`},
+    {c:'#639922',t:'目標出場',b:`$${f2(fv)}（R:R 1:${rr.toFixed(1)}）`},
+    {c:'#888780',t:'時間停損',b:'3個財報季未達止盈一→降至50%'},
+  ].map(r=>`<div class="er"><div class="edot" style="background:${r.c}"></div><div class="etxt"><strong>${r.t}</strong>：${r.b}</div></div>`).join('');
+  document.getElementById('bot').classList.add('show');
+  const ws=[];
+  (s.risks||[]).forEach(r=>ws.push({bg:'#FCEBEB',c:'#A32D2D',t:'⚠ 風險：'+r}));
+  (s.catalysts||[]).forEach(c=>ws.push({bg:'#E6F1FB',c:'#185FA5',t:'◎ 催化劑：'+c}));
+  // 三維共振警告
+  if(align<3) {
+    const missing = [];
+    if(!confirmMom) missing.push('動能(RSI需<35)');
+    if(!confirmMacd) missing.push('籌碼(MACD需買入)');
+    if(!confirmMoat) missing.push('護城河(評分需≥50)');
+    const missingText = missing.join('、');
+    if(align<2) ws.push({bg:'#FCEBEB',c:'#A32D2D',t:`⚠ 技術框架 ${align}/3 對齊，缺：${missingText}。建議等待更多確認`});
+    else ws.push({bg:'#FAEEDA',c:'#854F0B',t:`◎ 技術框架 ${align}/3 對齊，缺：${missingText}。建議雙重確認後進場`});
+  }
+  if(rr>0&&rr<1.5) ws.push({bg:'#FAEEDA',c:'#854F0B',t:'◎ R:R=1:'+rr.toFixed(1)+' 低於建議門檻 1:2'});
+  if(regime==='Stagflation') ws.push({bg:'#FAEEDA',c:'#854F0B',t:'◎ Stagflation：PEG 容忍度已乘以 0.7'});
+  if(s.beta&&s.beta>1.5) ws.push({bg:'#FAEEDA',c:'#854F0B',t:'◎ Beta='+s.beta+'，波動性高，凱利倉位建議再打七折'});
+  document.getElementById('warns').innerHTML=ws.map(w=>`<div class="wi" style="background:${w.bg};color:${w.c}">${w.t}</div>`).join('');
+  const now=new Date().toLocaleString('zh-TW',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+  document.getElementById('logt').textContent=[
+    `[${now}] ${s.ticker}  v4.0 全即時數據`,
+    `股價 $${price}（+${s.change_pct||0}%）  市值 ${s.mktcap}  Beta ${s.beta}`,
+    `PE ${s.pe_ttm}x  Fwd ${s.pe_fwd}x  PEG ${peg<90?peg:'N/A'}x  ← Yahoo 即時`,
+    `毛利 ${gm}%  淨利 ${s.net_margin}%  FCF ${s.fcf}  ← Yahoo 即時`,
+    `Rev成長 ${s.rev_growth}%  EPS成長 ${s.eps_growth}%  ← Yahoo 即時`,
+    `分析師目標 $${target}（${s.analyst_count}位）  ${s.consensus}  ← Yahoo 即時`,
+    `RSI=${s.rsi}  MACD=${s.macd}  共振=${align}/3[${confirmMom?'動能✓':'動能✗'},${confirmMacd?'籌碼✓':'籌碼✗'},${confirmMoat?'護城河✓':'護城河✗'}]  ← 前端計算`,
+    `護城河=${moat}  風險=${(s.risks||[]).length}項  ← Claude 定性`,
+    `p=${(p*100).toFixed(0)}%  b=${b.toFixed(2)}x  Kelly=${(pos*100).toFixed(1)}%`,
+    `M1=${m1s}  M2=${m2s}  M3=${m3s}  M4=${m4s}  M5=${m5s}  總分=${total}`,
+    `環境=${regime}  VIX=${vix}（Yahoo）  F&G=${fg}（CNN）  Fed=${m.fed_rate}`,
+    `停損=$${f2(stopL)}  止盈=$${f2(tp1)}  目標=$${f2(fv)}  R:R=1:${rr.toFixed(2)}`,
+  ].join('\n');
+  document.getElementById('logbox').classList.add('show');
+}
+
+function resetUI(){
+  ['hero','strip','bot','logbox'].forEach(id=>document.getElementById(id).classList.remove('show'));
+  document.getElementById('mods').innerHTML='';
+  document.getElementById('warns').innerHTML='';
+  document.getElementById('err-box').className='err-box';
+  document.getElementById('data-ts').className='data-ts';
+  [1,2,3,4].forEach(n=>setStep(n,'','等待',''));
+}
+function showErr(head,body){
+  document.getElementById('err-box').className='err-box show';
+  document.getElementById('err-head').textContent=head||'錯誤';
+  document.getElementById('err-body').textContent=body||'請重試。';
+}
+function f2(n){return n?(+n).toFixed(2):'N/A';}
+
+window.addEventListener('load',()=>setTimeout(fetchMacro,800));
+</script>
+</body>
+</html>
