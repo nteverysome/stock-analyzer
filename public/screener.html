@@ -1474,7 +1474,7 @@ function renderOpportunityCard(r, macro) {
 
   // Tags
   let tags = '';
-  const isTWStock = r.dbData != null;
+  const isTWStock = /^\d{4,5}$/.test(r.ticker) || r.ticker.endsWith('.TW') || r.ticker.endsWith('.TWO');
   if (isTWStock) {
     // 台股標籤：有基本面顯示 PEG/GM/分析師，否則用技術面
     if (sc.hasFund && sc.peg) tags += `<span class="tag ${sc.peg<=1?'tg':'to'}">PEG ${sc.peg.toFixed(2)}</span>`;
@@ -1538,7 +1538,7 @@ function renderWatchlistRow(r) {
   const lbl = sc.total>=55?'等待':'觀望';
   // Figure out what's missing
   let missing = '';
-  const isTWS = r.dbData != null;
+  const isTWS = /^\d{4,5}$/.test(r.ticker) || r.ticker.endsWith('.TW') || r.ticker.endsWith('.TWO');
   if (isTWS) {
     if (sc.m3s < 15) missing = '等 RSI/KD 超賣確認';
     else if (sc.m2s < 30) missing = '均線位置偏高，等回調';
