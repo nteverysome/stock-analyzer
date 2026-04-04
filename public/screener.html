@@ -988,7 +988,9 @@ function toggleMarket(market, el) {
   selectedMarkets = [...document.querySelectorAll('.market-chip.active')].map(c => c.dataset.market);
   if (!selectedMarkets.length) { el.classList.add('active'); selectedMarkets = [market]; }
   const labels = selectedMarkets.map(m => m === 'us' ? '🇺🇸 美股' : '🇹🇼 台股').join(' + ');
-  document.getElementById('market-stats').textContent = `已選擇：${labels}。點擊「開始掃描」將從 Yahoo Finance 拉取各市場市值前 250 大股票進行分析。`;
+  const twNote = selectedMarkets.includes('tw') ? '台股使用 Neon DB 本地數據（含基本面+技術指標），' : '';
+  const usNote = selectedMarkets.includes('us') ? '美股從 Yahoo Finance 拉取市值前 250 大，' : '';
+  document.getElementById('market-stats').textContent = `已選擇：${labels}。${twNote}${usNote}點擊「開始掃描」開始四層漏斗分析。`;
 }
 
 // 從 Yahoo Finance Screener API 拉取市場股票
@@ -1121,26 +1123,27 @@ async function startScan() {
 
   // 根據掃描模式取得股票清單
   let wl;
-  // 偵測是否為純台股掃描
-  const isTWOnly = currentScanMode === 'fullmarket' && selectedMarkets.length === 1 && selectedMarkets[0] === 'tw';
+  // 偵測是否包含台股
+  const hasTW = currentScanMode === 'fullmarket' && selectedMarkets.includes('tw');
+  const hasUS = currentScanMode === 'fullmarket' && selectedMarkets.includes('us');
+  const isTWOnly = hasTW && !hasUS;
 
-  if (currentScanMode === 'fullmarket' && !isTWOnly) {
-    document.getElementById('scan-status').textContent = '正在從 Yahoo Finance 拉取市場股票清單...';
+  if (currentScanMode === 'fullmarket' && hasUS) {
+    document.getElementById('scan-status').textContent = '正在從 Yahoo Finance 拉取美股清單...';
     wl = [];
-    for (const market of selectedMarkets) {
-      if (scanAborted) break;
-      const stocks = await fetchMarketStocks(market);
-      wl.push(...stocks);
-    }
-    wl = [...new Set(wl)]; // 去重
-    if (!wl.length) {
+    const stocks = await fetchMarketStocks('us');
+    wl.push(...stocks);
+    wl = [...new Set(wl)];
+    if (!wl.length && !hasTW) {
       document.getElementById('scan-status').textContent = '無法取得市場數據，請稍後再試';
       clearInterval(timer); btn.disabled=false; btn.textContent='🔍 開始掃描'; stopBtn.style.display='none'; scanRunning=false;
       return;
     }
-    document.getElementById('scan-status').textContent = `已取得 ${wl.length} 支股票，開始四層漏斗篩選...`;
-  } else if (!isTWOnly) {
+    document.getElementById('scan-status').textContent = `已取得 ${wl.length} 支美股${hasTW ? '，台股將使用 Neon DB...' : ''}`;
+  } else if (!hasTW) {
     wl = getWatchlist();
+  } else {
+    wl = []; // 純台股模式，wl 不需要
   }
   // 讀取勾選狀態和值
   const useScore = document.getElementById('chk-score').checked;
@@ -1191,40 +1194,45 @@ async function startScan() {
   updateLayer(1, 'pass', `宏觀通過：${macro.regime}（F&G ${macro.fg}/100, VIX ${macro.vix}）`, '通過');
   if (scanAborted) { clearInterval(timer); btn.disabled=false; btn.textContent='🔍 開始掃描'; stopBtn.style.display='none'; scanRunning=false; return; }
 
-  // ═══ 台股快速路徑：直接用資料庫數據 ═══
-  if (isTWOnly) {
+  // ═══ 台股掃描：直接用 Neon DB 數據 ═══
+  if (hasTW) {
     const twResult = await scanTaiwanStocksFromDB(macro, updateLayer, rsiThresh, useRsi, minScore);
-    const { scored, l2Only, l2WithChart, l3Results, wlCount } = twResult;
-    updateLayer(4, 'pass', `完整評分完成`, `${scored.length}支進入決賽`);
-    document.getElementById('scan-fill').style.width = '100%';
-    const maxOpp = 15, maxWatch = 30;
-    // 台股門檻：有勾選最低分用 UI 值，否則預設 50（因為台股缺部分指標，分數天然偏低）
-    const twMinScore = useScore ? minScore : 50;
-    const opportunities = scored.filter(r => r.score.total >= twMinScore).slice(0, maxOpp);
-    const twWatchMin = Math.max(35, twMinScore - 15);
-    const watchlist = [...scored.filter(r => r.score.total < twMinScore && r.score.total >= twWatchMin), ...l2Only.filter(r => r.score.total >= twWatchMin)].slice(0, maxWatch);
-    clearInterval(timer);
-    const elapsed = ((performance.now()-t0)/1000).toFixed(1);
-    document.getElementById('scan-timer').textContent = elapsed+'s';
-    document.getElementById('scan-status').textContent = `台股全市場掃描完成 ✓（${elapsed}s）— 使用 Neon DB 本地數據`;
-    results.classList.remove('hidden');
-    let html = `<p class="sec-t" style="margin-top:12px;">📊 台股全市場掃描摘要 · 環境 ${macro.regime} · 掃描 ${wlCount} 支 · 初篩通過 ${l2WithChart.length} 支 · 技術面通過 ${l3Results.length} 支 · 進場機會 ${opportunities.length} 支</p>`;
-    if (opportunities.length > 0) {
-      html += `<p class="sec-t">🎯 進場機會（總分 ≥ ${twMinScore}）</p>`;
-      opportunities.forEach(r => { html += renderOpportunityCard(r, macro); });
-    } else if (scored.length > 0 || l2Only.length > 0) {
-      html += renderScenario4(wlCount, scored[0] || l2Only[0]);
-    } else {
-      html += renderScenario4(wlCount, null);
+    const { scored: twScored, l2Only: twL2Only, l2WithChart: twL2, l3Results: twL3, wlCount: twCount } = twResult;
+
+    if (!hasUS) {
+      // 純台股：直接輸出
+      updateLayer(4, 'pass', `完整評分完成`, `${twScored.length}支進入決賽`);
+      document.getElementById('scan-fill').style.width = '100%';
+      const maxOpp = 15, maxWatch = 30;
+      const twMinScore = useScore ? minScore : 50;
+      const opportunities = twScored.filter(r => r.score.total >= twMinScore).slice(0, maxOpp);
+      const twWatchMin = Math.max(35, twMinScore - 15);
+      const watchlist = [...twScored.filter(r => r.score.total < twMinScore && r.score.total >= twWatchMin), ...twL2Only.filter(r => r.score.total >= twWatchMin)].slice(0, maxWatch);
+      clearInterval(timer);
+      const elapsed = ((performance.now()-t0)/1000).toFixed(1);
+      document.getElementById('scan-timer').textContent = elapsed+'s';
+      document.getElementById('scan-status').textContent = `台股全市場掃描完成 ✓（${elapsed}s）— 使用 Neon DB 本地數據`;
+      results.classList.remove('hidden');
+      let html = `<p class="sec-t" style="margin-top:12px;">📊 台股全市場掃描摘要 · 環境 ${macro.regime} · 掃描 ${twCount} 支 · 初篩 ${twL2.length} 支 · 技術面 ${twL3.length} 支 · 進場機會 ${opportunities.length} 支</p>`;
+      if (opportunities.length > 0) {
+        html += `<p class="sec-t">🎯 進場機會（總分 ≥ ${twMinScore}）</p>`;
+        opportunities.forEach(r => { html += renderOpportunityCard(r, macro); });
+      } else if (twScored.length > 0 || twL2Only.length > 0) {
+        html += renderScenario4(twCount, twScored[0] || twL2Only[0]);
+      } else {
+        html += renderScenario4(twCount, null);
+      }
+      if (watchlist.length > 0) {
+        html += `<p class="sec-t" style="margin-top:12px;">👀 觀察清單（總分 ${twWatchMin}–${twMinScore-1}）</p><div class="card">`;
+        watchlist.forEach(r => { html += renderWatchlistRow(r); });
+        html += '</div>';
+      }
+      results.innerHTML = html;
+      btn.disabled=false; btn.textContent='🔍 開始掃描'; stopBtn.style.display='none'; scanRunning=false;
+      return;
     }
-    if (watchlist.length > 0) {
-      html += `<p class="sec-t" style="margin-top:12px;">👀 觀察清單（總分 ${twWatchMin}–${twMinScore-1}）</p><div class="card">`;
-      watchlist.forEach(r => { html += renderWatchlistRow(r); });
-      html += '</div>';
-    }
-    results.innerHTML = html;
-    btn.disabled=false; btn.textContent='🔍 開始掃描'; stopBtn.style.display='none'; scanRunning=false;
-    return;
+    // 美股+台股混合：台股結果先存起來，等美股掃完再合併
+    // (美股流程在下方繼續)
   }
 
   // ═══ 美股/混合掃描：原有 Yahoo Finance 流程 ═══
