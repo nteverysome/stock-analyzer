@@ -1384,7 +1384,6 @@ function renderOpportunityCard(r, macro) {
   const narr = isTWStock ? generateNarrativeTW(r, sc)
     : (sc.total >= 72 ? generateNarrative1(r, sc) : generateNarrative2(r, sc));
 
-  const isTWStock = r.ticker.endsWith('.TW') || r.ticker.endsWith('.TWO') || (r.dbData != null);
   const mktFlag = isTWStock ? '🇹🇼' : '🇺🇸';
   const currency = isTWStock ? 'NT$' : '$';
   const displayName = isTWStock && r.dbData ? `${r.dbData.name}（${r.ticker}）` : (f.name || r.ticker);
