@@ -813,23 +813,56 @@ function scoreTWStock(dbData, macro) {
   let m1=15; if(fg<=25)m1+=35;else if(fg<=45)m1+=20; if(vix>20)m1+=20;
   const m1s = Math.min(100, Math.round(m1*mul));
 
-  // ── M2: 估值替代 → 均線位置 + 價格動能 + KD 超賣
+  // ── M2: 估值（有基本面用真實數據，沒有用均線替代）
+  const hasFund = s.has_fundamentals;
+  const pegVal = s.peg, gmVal = s.gross_margin, atVal = s.analyst_target, atCnt = s.analyst_count || 0;
+  const epsG = s.eps_growth, revG = s.rev_growth;
   let m2 = 0;
-  // 價格 vs MA20（在 MA20 以下 = 相對便宜）
-  if (ma20 && price < ma20 * 0.95) m2 += 25;       // 低於 MA20 超過 5%
-  else if (ma20 && price < ma20) m2 += 15;           // 低於 MA20
-  else if (ma20 && price < ma20 * 1.03) m2 += 5;    // 接近 MA20
-  // 價格 vs MA60（中期趨勢）
-  if (ma60 && price < ma60 * 0.90) m2 += 20;        // 低於 MA60 超過 10%
-  else if (ma60 && price < ma60) m2 += 10;           // 低於 MA60
-  // 52 週位置（越接近低點分越高）
-  if (w52pos <= 0.15) m2 += 20;       // 非常接近 52 週低點
-  else if (w52pos <= 0.25) m2 += 15;  // 接近低點
-  else if (w52pos <= 0.35) m2 += 8;   // 偏低
-  // KD 超賣（替代 PEG）— 實際數據中 KD 最低約 33
-  if (kd <= 34) m2 += 15;            // 最低區間（底部 40%）
-  else if (kd <= 38) m2 += 10;       // 偏低
-  else if (kd <= 42) m2 += 5;        // 中偏低
+  let m2Mode = 'technical'; // 'fundamental' or 'technical'
+
+  if (hasFund && (pegVal || gmVal || atVal)) {
+    m2Mode = 'fundamental';
+    // PEG 評分（和美股邏輯相同）
+    if (pegVal != null && pegVal > 0) {
+      if (pegVal <= 0.8) m2 += 25;
+      else if (pegVal <= 1.0) m2 += 20;
+      else if (pegVal <= 1.5) m2 += 15;
+      else if (pegVal <= 2.0) m2 += 8;
+    }
+    // 毛利率
+    if (gmVal != null) {
+      if (gmVal >= 0.60) m2 += 18;
+      else if (gmVal >= 0.40) m2 += 12;
+      else if (gmVal >= 0.25) m2 += 6;
+    }
+    // 分析師上行空間
+    if (atVal && atCnt >= 3 && price > 0) {
+      const upsidePct = (atVal - price) / price * 100;
+      if (upsidePct >= 30) m2 += 20;
+      else if (upsidePct >= 20) m2 += 15;
+      else if (upsidePct >= 10) m2 += 10;
+      else if (upsidePct >= 5) m2 += 5;
+    }
+    // 成長加分
+    if (epsG != null && epsG > 0.15) m2 += 8;
+    else if (epsG != null && epsG > 0.05) m2 += 4;
+    // 52W 位置（即使有基本面也考慮）
+    if (w52pos <= 0.20) m2 += 10;
+    else if (w52pos <= 0.30) m2 += 5;
+  } else {
+    // 無基本面：用均線位置 + KD 替代
+    if (ma20 && price < ma20 * 0.95) m2 += 25;
+    else if (ma20 && price < ma20) m2 += 15;
+    else if (ma20 && price < ma20 * 1.03) m2 += 5;
+    if (ma60 && price < ma60 * 0.90) m2 += 20;
+    else if (ma60 && price < ma60) m2 += 10;
+    if (w52pos <= 0.15) m2 += 20;
+    else if (w52pos <= 0.25) m2 += 15;
+    else if (w52pos <= 0.35) m2 += 8;
+    if (kd <= 34) m2 += 15;
+    else if (kd <= 38) m2 += 10;
+    else if (kd <= 42) m2 += 5;
+  }
   const m2s = Math.min(100, m2);
 
   // ── M3: 技術面（RSI + MACD + KD 金叉 + 均線排列）
@@ -859,19 +892,21 @@ function scoreTWStock(dbData, macro) {
   const confirmMACD = macdHist > 0;
   const tripleConfirm = [confirmMom, confirmKD, confirmMACD].filter(Boolean).length;
 
-  // ── M4: 凱利倉位
+  // ── M4: 凱利倉位（有分析師目標時用真實上行空間）
   let p = 0.50;
-  if (rsi < 25) p += 0.08;
-  else if (rsi < 35) p += 0.04;
+  if (rsi < 25) p += 0.08; else if (rsi < 35) p += 0.04;
   if (kdGoldenCross) p += 0.06;
   if (macdHist > 0) p += 0.05;
   if (maAligned) p += 0.04;
   if (w52pos < 0.25) p += 0.05;
+  if (hasFund && gmVal >= 0.40) p += 0.04; // 高毛利加分
   p = Math.min(0.80, Math.max(0.30, p));
-  // 上行/下行估算
   const w52h = s.high_52w || price * 1.3;
   const w52l = s.low_52w || price * 0.8;
-  const upPct = price > 0 ? Math.max(5, (w52h - price) / price * 100) : 10;
+  // 上行：有分析師目標用目標，否則用 52W 高
+  const useTarget = (hasFund && atVal && atCnt >= 3) ? atVal : null;
+  const upTarget = useTarget || w52h;
+  const upPct = price > 0 ? Math.max(5, (upTarget - price) / price * 100) : 10;
   const dPct = price > 0 ? Math.max(3, (price - w52l * 0.95) / price * 100) : 10;
   const b = Math.max(0.5, upPct / dPct);
   const fullK = Math.max(0, (p * b - (1 - p)) / b);
@@ -880,23 +915,30 @@ function scoreTWStock(dbData, macro) {
   const pos = Math.min(0.12, fullK * dynK * alMul);
   const m4s = Math.min(100, Math.round(pos * 750 + (b >= 2 ? 20 : b >= 1.5 ? 10 : 0)));
 
-  // ── M5: 出場規劃
-  const target = ma60 && ma60 > price ? ma60 : (ma120 && ma120 > price ? ma120 : price * 1.15);
+  // ── M5: 出場規劃（有分析師目標用目標作為公允價）
+  const maTarget = ma60 && ma60 > price ? ma60 : (ma120 && ma120 > price ? ma120 : price * 1.15);
+  const target = useTarget || maTarget;
   const fv = Math.max(target, w52h * 0.85);
   const stopL = w52l * 0.95;
   const rr = (price && stopL && price > stopL) ? (fv - price) / (price - stopL) : 0;
   const m5s = rr >= 2 ? 80 : rr >= 1.5 ? 60 : rr >= 1 ? 40 : 20;
 
-  // 台股加權：M2(估值替代) 25%, M3(技術面) 35%, M1(宏觀) 15%, M4 15%, M5 10%
-  const total = Math.round(m1s * 0.15 + m2s * 0.25 + m3s * 0.35 + m4s * 0.15 + m5s * 0.10);
+  // 加權：有基本面時估值權重更高
+  const wM1 = 0.15, wM3 = 0.30, wM4 = 0.15, wM5 = 0.10;
+  const wM2 = hasFund ? 0.30 : 0.25;
+  const wM3adj = hasFund ? 0.30 : 0.35;
+  const total = Math.round(m1s * wM1 + m2s * wM2 + m3s * wM3adj + m4s * wM4 + m5s * wM5);
 
   return {
     m1s, m2s, m3s, m4s, m5s, total, p, b, fullK, pos, rr, upPct, dPct,
-    price, target, stopL, fv, rsi, peg: null, gm: 0, regime, mul, align: tripleConfirm, dynK,
+    price, target, stopL, fv, rsi,
+    peg: pegVal || null, gm: gmVal || 0, regime, mul, align: tripleConfirm, dynK,
     tripleConfirm, confirmMom, confirmChip: confirmKD, confirmSup: confirmMACD,
     kd, kdSlow, macdHist, w52pos, kdGoldenCross, maAligned,
-    // labels for TW
-    m2Label: '均線/動能', m3Label: 'RSI/KD/MACD',
+    hasFund, m2Mode, analystTarget: atVal, analystCount: atCnt,
+    epsGrowth: epsG, grossMargin: gmVal,
+    m2Label: hasFund ? '估值(PEG/GM/分析師)' : '均線/動能',
+    m3Label: 'RSI/KD/MACD',
   };
 }
 
@@ -1309,9 +1351,13 @@ function renderOpportunityCard(r, macro) {
   let tags = '';
   const isTWStock = r.dbData != null;
   if (isTWStock) {
-    // 台股標籤：用 KD/MA/MACD 替代 PEG
-    if (sc.kd != null && sc.kd < 25) tags += `<span class="tag tg">KD ${sc.kd.toFixed(0)} 超賣</span>`;
-    else if (sc.kd != null && sc.kd < 40) tags += `<span class="tag to">KD ${sc.kd.toFixed(0)}</span>`;
+    // 台股標籤：有基本面顯示 PEG/GM/分析師，否則用技術面
+    if (sc.hasFund && sc.peg) tags += `<span class="tag ${sc.peg<=1?'tg':'to'}">PEG ${sc.peg.toFixed(2)}</span>`;
+    if (sc.hasFund && sc.grossMargin) tags += `<span class="tag ${sc.grossMargin>=0.4?'tg':'tb'}">毛利率 ${(sc.grossMargin*100).toFixed(0)}%</span>`;
+    if (sc.hasFund && sc.analystTarget && sc.analystCount >= 3) {
+      const up = ((sc.analystTarget - sc.price) / sc.price * 100).toFixed(0);
+      tags += `<span class="tag ${up>=15?'tg':'tb'}">目標 NT$${sc.analystTarget.toFixed(0)} (+${up}%) · ${sc.analystCount}位分析師</span>`;
+    }
     if (sc.kdGoldenCross) tags += `<span class="tag tg">KD 金叉</span>`;
     if (sc.macdHist > 0) tags += `<span class="tag tg">MACD 買入</span>`;
     if (sc.maAligned) tags += `<span class="tag tg">均線多頭</span>`;
@@ -1350,7 +1396,7 @@ function renderOpportunityCard(r, macro) {
     </div>
     <div class="mod-bars">
       ${(isTWStock
-        ? [['M1 環境',sc.m1s],['M2 均線動能',sc.m2s],['M3 RSI/KD/MACD',sc.m3s],['M4 凱利',sc.m4s]]
+        ? [['M1 環境',sc.m1s],[`M2 ${sc.m2Label||'估值'}`,sc.m2s],['M3 RSI/KD/MACD',sc.m3s],['M4 凱利',sc.m4s]]
         : [['模組一 環境',sc.m1s],['模組二 估值',sc.m2s],['模組三 技術',sc.m3s],['模組四 凱利',sc.m4s]]
       ).map(([l,v])=>`
         <div class="mod-bar"><div class="mod-bar-lbl">${l}</div><div class="mod-bar-track"><div class="mod-bar-fill" style="width:${v}%;background:${barColor(v)}"></div></div><div class="mod-bar-val" style="color:${barColor(v)}">${v}</div></div>
@@ -1398,18 +1444,29 @@ function generateNarrativeTW(r, sc) {
   const name = s.name || r.ticker;
   const rsiDesc = sc.rsi < 20 ? '歷史極端超賣' : sc.rsi < 30 ? '超賣區域' : sc.rsi < 40 ? '偏低' : '中性';
   const signals = [];
+  // 基本面信號
+  if (sc.hasFund) {
+    if (sc.peg && sc.peg <= 1.5) signals.push(`PEG ${sc.peg.toFixed(2)} 低估`);
+    if (sc.grossMargin && sc.grossMargin >= 0.40) signals.push(`毛利率 ${(sc.grossMargin*100).toFixed(0)}%`);
+    if (sc.analystTarget && sc.analystCount >= 3) {
+      const up = ((sc.analystTarget - sc.price) / sc.price * 100).toFixed(0);
+      signals.push(`分析師目標 NT$${sc.analystTarget.toFixed(0)}（+${up}%，${sc.analystCount}人）`);
+    }
+  }
+  // 技術面信號
   if (sc.kdGoldenCross) signals.push('KD 低位金叉');
   if (sc.macdHist > 0) signals.push('MACD 翻多');
   if (sc.maAligned) signals.push('均線多頭排列');
   if (sc.w52pos < 0.2) signals.push('接近52週低點');
-  if (s.ma20 && s.price < s.ma20) signals.push(`低於 MA20（${s.ma20.toFixed(1)}）`);
+  if (s.ma20 && s.price < s.ma20) signals.push(`低於 MA20`);
   const sigText = signals.length ? signals.join('、') : '尚無明確買入信號';
   const risk = sc.regime !== 'Goldilocks' ? `當前環境為${sc.regime}，系統性風險偏高。` : '';
+  const dataMode = sc.hasFund ? '（含基本面）' : '（技術面）';
   if (sc.total >= 65) {
-    return `${name}（${r.ticker}）RSI ${sc.rsi.toFixed(1)} 為${rsiDesc}，技術信號：${sigText}。${risk}建議以 ${(sc.pos*100).toFixed(1)}% 試探，停損 NT$${sc.stopL.toFixed(0)}，目標 NT$${sc.fv.toFixed(0)}（R:R 1:${sc.rr.toFixed(1)}）。`;
+    return `${name}（${r.ticker}）${dataMode} RSI ${sc.rsi.toFixed(1)} ${rsiDesc}，信號：${sigText}。${risk}建議以 ${(sc.pos*100).toFixed(1)}% 試探，停損 NT$${sc.stopL.toFixed(0)}，目標 NT$${sc.fv.toFixed(0)}（R:R 1:${sc.rr.toFixed(1)}）。`;
   } else {
-    const weakest = sc.m2s < sc.m3s ? '均線動能信號不足，等待價格進一步回調' : 'RSI/KD 尚未到達超賣極端，等待底背離';
-    return `${name}（${r.ticker}）評分 ${sc.total}，信號：${sigText}。不足之處：${weakest}。${risk}建議加入觀察清單，等待更多確認信號出現。`;
+    const weakest = sc.m2s < 30 ? (sc.hasFund ? '估值尚未到便宜區間' : '均線位置偏高，等回調') : 'RSI/KD 尚未到超賣極端';
+    return `${name}（${r.ticker}）${dataMode} 評分 ${sc.total}，信號：${sigText}。不足：${weakest}。${risk}建議觀察。`;
   }
 }
 function generateNarrative1(r, sc) {

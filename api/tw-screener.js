@@ -30,7 +30,11 @@ export default async function handler(req, res) {
           w52.high_52w, w52.low_52w,
           i.rsi, i.kd_fast, i.kd_slow,
           i.macd, i.macd_signal, i.macd_histogram,
-          i.m1 AS ma5, i.m2 AS ma10, i.m3 AS ma20, i.m4 AS ma60, i.m5 AS ma120
+          i.m1 AS ma5, i.m2 AS ma10, i.m3 AS ma20, i.m4 AS ma60, i.m5 AS ma120,
+          f.pe_ttm, f.pe_fwd, f.peg, f.gross_margin, f.operating_margin, f.net_margin,
+          f.rev_growth, f.eps_growth, f.analyst_target, f.analyst_low, f.analyst_high,
+          f.analyst_count, f.recommendation, f.market_cap, f.dividend_yield,
+          f.sector AS fund_sector, f.industry AS fund_industry
         FROM tw_stocks s
         LEFT JOIN LATERAL (
           SELECT close, open, high, low, volume, price_date
@@ -52,6 +56,14 @@ export default async function handler(req, res) {
           FROM tw_indicators WHERE symbol = s.symbol
           ORDER BY indicator_date DESC LIMIT 1
         ) i ON TRUE
+        LEFT JOIN LATERAL (
+          SELECT pe_ttm, pe_fwd, peg, gross_margin, operating_margin, net_margin,
+                 rev_growth, eps_growth, analyst_target, analyst_low, analyst_high,
+                 analyst_count, recommendation, market_cap, dividend_yield,
+                 sector, industry
+          FROM tw_fundamentals WHERE symbol = s.symbol
+          ORDER BY update_date DESC LIMIT 1
+        ) f ON TRUE
         WHERE p.close IS NOT NULL
         ORDER BY s.symbol
       `);
@@ -94,6 +106,21 @@ export default async function handler(req, res) {
           ma120: r.ma120 != null ? parseFloat(r.ma120) : null,
           price_date: r.price_date,
           has_indicators: rsi != null,
+          // 基本面（from tw_fundamentals）
+          pe_ttm: r.pe_ttm != null ? parseFloat(r.pe_ttm) : null,
+          pe_fwd: r.pe_fwd != null ? parseFloat(r.pe_fwd) : null,
+          peg: r.peg != null ? parseFloat(r.peg) : null,
+          gross_margin: r.gross_margin != null ? parseFloat(r.gross_margin) : null,
+          operating_margin: r.operating_margin != null ? parseFloat(r.operating_margin) : null,
+          net_margin: r.net_margin != null ? parseFloat(r.net_margin) : null,
+          rev_growth: r.rev_growth != null ? parseFloat(r.rev_growth) : null,
+          eps_growth: r.eps_growth != null ? parseFloat(r.eps_growth) : null,
+          analyst_target: r.analyst_target != null ? parseFloat(r.analyst_target) : null,
+          analyst_count: r.analyst_count != null ? parseInt(r.analyst_count) : null,
+          recommendation: r.recommendation,
+          market_cap: r.market_cap != null ? parseInt(r.market_cap) : null,
+          dividend_yield: r.dividend_yield != null ? parseFloat(r.dividend_yield) : null,
+          has_fundamentals: r.pe_ttm != null || r.gross_margin != null,
         };
       });
 
