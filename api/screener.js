@@ -1,8 +1,10 @@
 /**
- * Vercel Serverless Function - Market Screener v6.0
+ * Vercel Serverless Function - Market Screener v7.0
  * 美股：Yahoo Finance predefined screener + trending 端點
- * 台股：TWSE (台灣證交所) Open API - 完整 1,068 家上市公司
+ * 台股：直接從 Neon 資料庫讀取（1,962 支完整台股）
  */
+
+import { Pool } from '@neondatabase/serverless';
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36';
 
@@ -11,45 +13,38 @@ let twseCache = null;
 let twseCacheTime = 0;
 const TWSE_CACHE_TTL = 3600 * 1000; // 1 小時快取
 
-// 從 FinMind API 獲得完整台股清單（1,068+ 家）
+// 從 Neon 資料庫讀取台股清單
 async function fetchTaiwanStocks() {
-  // 檢查快取
   if (twseCache && Date.now() - twseCacheTime < TWSE_CACHE_TTL) {
     console.log('[screener] 使用 Taiwan 快取');
     return twseCache;
   }
 
   try {
-    console.log('[screener] 正在從 FinMind API 拉取台股清單...');
-    const url = 'https://api.finmind.ai/api/v4/data?dataset=TaiwanStockInfo';
-    const r = await fetch(url, {
-      headers: { 'User-Agent': UA },
-      signal: AbortSignal.timeout(15000)
-    });
-
-    if (!r.ok) throw new Error(`FinMind API ${r.status}`);
-    const data = await r.json();
-
-    if (data.status !== 200 || !data.data) throw new Error('FinMind invalid response');
-
-    // 解析 FinMind 回應格式：data.data 是數組，每個元素包含 stock_id, stock_name, industry_type 等
-    const stocks = data.data.map(item => ({
-      symbol: item.stock_id,  // 股票代碼 (e.g., "2330")
-      shortName: item.stock_name || item.stock_id,  // 股票名稱 (e.g., "台積電")
-      marketCap: 0,  // FinMind 基本版不提供市值
-      industry: item.industry_type || 'N/A',  // 產業別
-    }));
-
-    console.log(`[screener] FinMind: 成功取得 ${stocks.length} 隻台股`);
-
-    // 快取結果
-    twseCache = stocks;
-    twseCacheTime = Date.now();
-
-    return stocks;
+    if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL not set');
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: true });
+    const client = await pool.connect();
+    try {
+      const result = await client.query(
+        'SELECT symbol, name, industry, sector FROM tw_stocks ORDER BY symbol'
+      );
+      const stocks = result.rows.map(row => ({
+        symbol: row.symbol,
+        shortName: row.name || row.symbol,
+        marketCap: 0,
+        industry: row.industry || row.sector || 'N/A',
+      }));
+      console.log(`[screener] Neon DB: 成功取得 ${stocks.length} 支台股`);
+      twseCache = stocks;
+      twseCacheTime = Date.now();
+      return stocks;
+    } finally {
+      client.release();
+      await pool.end();
+    }
   } catch (err) {
-    console.error('[screener] FinMind 失敗:', err.message);
-    return null;  // 失敗時返回 null，稍後用備選清單
+    console.error('[screener] Neon DB 失敗:', err.message);
+    return null;
   }
 }
 
@@ -133,7 +128,7 @@ const TW_FALLBACK = [
   '6001','6002','6003','6004','6005','6006','6007','6008','6009','6010',
 ].map(id => id.endsWith('TW') ? id : id + 'TW');
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
@@ -147,19 +142,17 @@ module.exports = async function handler(req, res) {
     let allSymbols = [];
     let source = 'fallback';
 
-    // ===== 台股特殊處理：使用 FinMind API（完整 1,068+ 家台股） =====
+    // ===== 台股：從 Neon 資料庫讀取（1,962 支完整台股） =====
     if (market === 'tw') {
-      console.log('[screener] 台股模式：嘗試從 FinMind API 拉取完整清單...');
+      console.log('[screener] 台股模式：從 Neon DB 拉取完整清單...');
 
-      // 嘗試 FinMind API
       const taiwanStocks = await fetchTaiwanStocks();
       if (taiwanStocks && taiwanStocks.length > 100) {
         allSymbols = taiwanStocks;
-        source = 'finmind-api';
-        console.log(`[screener] ✅ FinMind API 成功：${allSymbols.length} 隻台股`);
+        source = 'neon-db';
+        console.log(`[screener] ✅ Neon DB 成功：${allSymbols.length} 支台股`);
       } else {
-        // FinMind API 失敗，使用備選清單
-        console.log('[screener] ⚠️ FinMind API 失敗，使用備選清單');
+        console.log('[screener] ⚠️ Neon DB 失敗，使用備選清單');
         allSymbols = TW_FALLBACK.map(s => ({ symbol: s, shortName: s, marketCap: 0 }));
         source = 'tw-fallback';
       }
