@@ -826,10 +826,10 @@ function scoreTWStock(dbData, macro) {
   if (w52pos <= 0.15) m2 += 20;       // 非常接近 52 週低點
   else if (w52pos <= 0.25) m2 += 15;  // 接近低點
   else if (w52pos <= 0.35) m2 += 8;   // 偏低
-  // KD 超賣（替代 PEG）
-  if (kd <= 15) m2 += 15;            // 極度超賣
-  else if (kd <= 25) m2 += 10;       // 超賣
-  else if (kd <= 35) m2 += 5;        // 偏低
+  // KD 超賣（替代 PEG）— 實際數據中 KD 最低約 33
+  if (kd <= 34) m2 += 15;            // 最低區間（底部 40%）
+  else if (kd <= 38) m2 += 10;       // 偏低
+  else if (kd <= 42) m2 += 5;        // 中偏低
   const m2s = Math.min(100, m2);
 
   // ── M3: 技術面（RSI + MACD + KD 金叉 + 均線排列）
@@ -842,10 +842,10 @@ function scoreTWStock(dbData, macro) {
   // MACD 信號
   if (macdHist > 0) m3 += 18;         // MACD 買入信號
   else if (macdHist > -0.5) m3 += 5;  // 接近翻正
-  // KD 金叉（K > D 且在低位）
-  const kdGoldenCross = kd > kdSlow && kd < 40;
+  // KD 金叉（K > D 且在低位）— KD 實際範圍 33-67
+  const kdGoldenCross = kd > kdSlow && kd < 45;
   if (kdGoldenCross) m3 += 15;
-  else if (kd < kdSlow && kd < 25) m3 += 8; // 低位即將金叉
+  else if (kd < kdSlow && kd < 38) m3 += 8; // 低位即將金叉
   // 均線多頭排列
   const maAligned = ma5 && ma10 && ma20 && ma5 > ma10 && ma10 > ma20;
   if (maAligned) m3 += 12;
