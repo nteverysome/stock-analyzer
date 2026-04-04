@@ -865,32 +865,49 @@ function scoreTWStock(dbData, macro) {
   }
   const m2s = Math.min(100, m2);
 
-  // ── M3: 技術面（RSI + MACD + KD 金叉 + 均線排列）
-  let m3 = 0;
-  // RSI
-  if (rsi < 20) m3 += 30;
-  else if (rsi < 30) m3 += 22;
-  else if (rsi < 40) m3 += 12;
-  else if (rsi < 45) m3 += 5;
-  // MACD 信號
-  if (macdHist > 0) m3 += 18;         // MACD 買入信號
-  else if (macdHist > -0.5) m3 += 5;  // 接近翻正
-  // KD 金叉（K > D 且在低位）— KD 實際範圍 33-67
+  // ── M3: 技術面（RSI + MACD + KD + 均線）— 缺失指標時正規化
+  let m3raw = 0, m3max = 0;
+  // RSI（最高 30 分）— 幾乎所有股票都有
+  m3max += 30;
+  if (rsi < 20) m3raw += 30;
+  else if (rsi < 30) m3raw += 22;
+  else if (rsi < 40) m3raw += 12;
+  else if (rsi < 45) m3raw += 5;
+  // KD 信號（最高 18 分）
+  m3max += 18;
   const kdGoldenCross = kd > kdSlow && kd < 45;
-  if (kdGoldenCross) m3 += 15;
-  else if (kd < kdSlow && kd < 38) m3 += 8; // 低位即將金叉
-  // 均線多頭排列
+  if (kdGoldenCross) m3raw += 18;
+  else if (kd < kdSlow && kd < 38) m3raw += 10;
+  else if (kd <= 36) m3raw += 5;
+  // MACD 信號（最高 20 分）— 很多股票 null
+  if (s.macd_histogram != null) {
+    m3max += 20;
+    if (macdHist > 0) m3raw += 20;
+    else if (macdHist > -0.5) m3raw += 6;
+  }
+  // 均線排列（最高 15 分）— 需要 ma20
   const maAligned = ma5 && ma10 && ma20 && ma5 > ma10 && ma10 > ma20;
-  if (maAligned) m3 += 12;
-  // 短均上穿長均
-  else if (ma5 && ma20 && ma5 > ma20 && ma10 && ma10 < ma20) m3 += 6;
-  const m3s = Math.min(100, m3);
+  if (ma20) {
+    m3max += 15;
+    if (maAligned) m3raw += 15;
+    else if (ma5 && ma20 && ma5 > ma20) m3raw += 7;
+  }
+  // 價格動能加分（最高 17 分）— 用變化率補充
+  m3max += 17;
+  const chg = s.change_pct || 0;
+  if (chg > 2) m3raw += 10;      // 今日大漲（可能反轉信號）
+  else if (chg > 0) m3raw += 5;  // 微漲
+  if (w52pos < 0.15 && rsi < 30) m3raw += 7; // 超賣+52W極低 = 強反轉信號
+  // 正規化：按可用數據比例放大到 100 分制
+  const m3s = m3max > 0 ? Math.min(100, Math.round(m3raw / m3max * 100)) : 0;
 
   // 技術面確認信號
   const confirmMom = rsi < 35;
-  const confirmKD = kdGoldenCross || (kd < 25);
-  const confirmMACD = macdHist > 0;
-  const tripleConfirm = [confirmMom, confirmKD, confirmMACD].filter(Boolean).length;
+  const confirmKD = kdGoldenCross || (kd <= 35);
+  const confirmMACD = s.macd_histogram != null ? macdHist > 0 : false;
+  // 缺 MACD 時用價格動能替代
+  const confirmTrend = s.macd_histogram == null ? (chg >= 0 && w52pos < 0.3) : confirmMACD;
+  const tripleConfirm = [confirmMom, confirmKD, confirmTrend].filter(Boolean).length;
 
   // ── M4: 凱利倉位（有分析師目標時用真實上行空間）
   let p = 0.50;
@@ -1180,17 +1197,20 @@ async function startScan() {
     const { scored, l2Only, l2WithChart, l3Results, wlCount } = twResult;
     updateLayer(4, 'pass', `完整評分完成`, `${scored.length}支進入決賽`);
     document.getElementById('scan-fill').style.width = '100%';
-    const maxOpp = 10, maxWatch = 20;
-    const opportunities = scored.filter(r => r.score.total >= minScore).slice(0, maxOpp);
-    const watchlist = [...scored.filter(r => r.score.total < minScore && r.score.total >= 50), ...l2Only.filter(r => r.score.total >= 50)].slice(0, maxWatch);
+    const maxOpp = 15, maxWatch = 30;
+    // 台股門檻：有勾選最低分用 UI 值，否則預設 50（因為台股缺部分指標，分數天然偏低）
+    const twMinScore = useScore ? minScore : 50;
+    const opportunities = scored.filter(r => r.score.total >= twMinScore).slice(0, maxOpp);
+    const twWatchMin = Math.max(35, twMinScore - 15);
+    const watchlist = [...scored.filter(r => r.score.total < twMinScore && r.score.total >= twWatchMin), ...l2Only.filter(r => r.score.total >= twWatchMin)].slice(0, maxWatch);
     clearInterval(timer);
     const elapsed = ((performance.now()-t0)/1000).toFixed(1);
     document.getElementById('scan-timer').textContent = elapsed+'s';
     document.getElementById('scan-status').textContent = `台股全市場掃描完成 ✓（${elapsed}s）— 使用 Neon DB 本地數據`;
     results.classList.remove('hidden');
-    let html = `<p class="sec-t" style="margin-top:12px;">📊 台股全市場掃描摘要 · 環境 ${macro.regime} · 掃描 ${wlCount} 支 · 有指標 ${l2WithChart.length + l3Results.length} 支 · 初篩通過 ${l2WithChart.length} 支 · 技術面通過 ${l3Results.length} 支 · 進場機會 ${opportunities.length} 支</p>`;
+    let html = `<p class="sec-t" style="margin-top:12px;">📊 台股全市場掃描摘要 · 環境 ${macro.regime} · 掃描 ${wlCount} 支 · 初篩通過 ${l2WithChart.length} 支 · 技術面通過 ${l3Results.length} 支 · 進場機會 ${opportunities.length} 支</p>`;
     if (opportunities.length > 0) {
-      html += `<p class="sec-t">🎯 進場機會（總分 ≥ ${minScore}）</p>`;
+      html += `<p class="sec-t">🎯 進場機會（總分 ≥ ${twMinScore}）</p>`;
       opportunities.forEach(r => { html += renderOpportunityCard(r, macro); });
     } else if (scored.length > 0 || l2Only.length > 0) {
       html += renderScenario4(wlCount, scored[0] || l2Only[0]);
@@ -1198,7 +1218,7 @@ async function startScan() {
       html += renderScenario4(wlCount, null);
     }
     if (watchlist.length > 0) {
-      html += `<p class="sec-t" style="margin-top:12px;">👀 觀察清單（總分 50–${minScore-1}）</p><div class="card">`;
+      html += `<p class="sec-t" style="margin-top:12px;">👀 觀察清單（總分 ${twWatchMin}–${twMinScore-1}）</p><div class="card">`;
       watchlist.forEach(r => { html += renderWatchlistRow(r); });
       html += '</div>';
     }
