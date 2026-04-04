@@ -1101,6 +1101,96 @@ async function scanTaiwanStocksFromDB(macro, updateLayer, rsiThresh, useRsi, min
   return { scored, l2Only, l2WithChart: l2Results, l3Results, wlCount: allStocks.length };
 }
 
+// ══════════ 美股快速掃描（Neon DB） ══════════
+async function scanUSStocksFromDB(macro, updateLayer, rsiThresh, useRsi, upsideThresh, useUpside, pegMax, usePeg, minScore, useScore) {
+  updateLayer(2, 'run', '第二層：從 Neon DB 載入美股數據...', '進行中');
+  document.getElementById('scan-fill').style.width = '20%';
+
+  let allStocks;
+  try {
+    const r = await fetch('/api/us-screener', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({}), signal: AbortSignal.timeout(30000),
+    });
+    if (!r.ok) throw new Error(`API ${r.status}`);
+    const data = await r.json();
+    if (!data.success) throw new Error(data.error || 'API failed');
+    allStocks = data.stocks;
+  } catch(e) {
+    updateLayer(2, 'fail', `美股 DB 載入失敗：${e.message}`, '錯誤');
+    return { scored: [], l2Only: [], l2WithChart: [], l3Results: [], wlCount: 0 };
+  }
+
+  document.getElementById('scan-status').textContent = `已載入 ${allStocks.length} 支美股，評分中...`;
+  document.getElementById('scan-fill').style.width = '35%';
+
+  // 轉換 DB 格式 → scoreStock 需要的 fund/chart 格式
+  const withData = allStocks.filter(s => s.price > 0 && (s.has_indicators || s.has_fundamentals));
+  const mapped = withData.map(s => {
+    const fund = {
+      name: s.name, pe_ttm: s.pe_ttm || 0, pe_fwd: s.pe_fwd || 0,
+      peg: s.peg, gross_margin: (s.gross_margin || 0) * 100, // scoreStock expects %
+      eps_growth: (s.eps_growth || 0) * 100, eq: '中',
+      analyst_target: s.analyst_target || 0, analyst_count: s.analyst_count || 0,
+      consensus: s.recommendation || 'N/A',
+      sector: s.sector, industry: s.industry,
+      rev_growth: (s.rev_growth || 0) * 100, net_margin: (s.net_margin || 0) * 100,
+    };
+    const chart = {
+      price: s.price, prev_close: s.prev_close,
+      week52_high: s.high_52w, week52_low: s.low_52w,
+      rsi: s.rsi || 50,
+      rsi_signal: s.rsi < 30 ? '超賣' : s.rsi > 70 ? '超買' : '正常',
+      macd: s.macd_histogram > 0 ? '買入' : '賣出',
+      macd_hist: s.macd_histogram || 0,
+      mktcap: s.market_cap ? (s.market_cap > 1e12 ? (s.market_cap/1e12).toFixed(1)+'T' : (s.market_cap/1e9).toFixed(1)+'B') : 'N/A',
+      change_pct: s.change_pct, volume: s.volume, vr: null,
+    };
+    const upside = fund.analyst_target > 0 ? (fund.analyst_target - s.price) / s.price * 100 : 0;
+    return { ticker: s.symbol, fund, chart, upside, dbData: s };
+  });
+
+  document.getElementById('scan-fill').style.width = '45%';
+
+  // L2: PEG + 上行空間篩選
+  const l2Results = mapped.filter(r => {
+    const f = r.fund;
+    const pegOk = !usePeg || (f.peg != null && f.peg > 0 && f.peg <= pegMax);
+    const hasGoodTarget = f.analyst_target > 0 && f.analyst_count >= 3;
+    const hasBasicData = f.analyst_target > 0 || f.peg != null;
+    const goodFundamentals = f.gross_margin >= 40 || f.eps_growth >= 15;
+    const upsideOk = !useUpside || !hasGoodTarget || (r.upside >= upsideThresh);
+    return pegOk && upsideOk && (hasGoodTarget || (hasBasicData && goodFundamentals) || r.chart.rsi < 35);
+  });
+
+  const l2Desc = [usePeg?`PEG≤${pegMax}`:'',useUpside?`上行≥${upsideThresh}%`:'']. filter(Boolean).join(' + ')||'基本篩選';
+  updateLayer(2, 'pass', `估值初篩：${l2Results.length}/${withData.length} 支通過（${l2Desc}）`, `${l2Results.length}支`);
+  document.getElementById('scan-fill').style.width = '60%';
+
+  // L3: RSI 過濾
+  const l3Results = l2Results.filter(r => {
+    if (useRsi && r.chart.rsi > rsiThresh) return false;
+    return true;
+  });
+  const l3Label = useRsi ? `RSI≤${rsiThresh}` : '全部通過';
+  updateLayer(3, 'pass', `技術面過濾：${l3Results.length}/${l2Results.length} 支通過（${l3Label}）`, `${l3Results.length}支`);
+  document.getElementById('scan-fill').style.width = '80%';
+
+  // L4: 用 scoreStock 評分
+  updateLayer(4, 'run', `第四層：完整評分 ${l3Results.length} 支...`, '進行中');
+  const scored = l3Results.map(r => {
+    const sc = scoreStock(r.fund, r.chart, macro);
+    return { ...r, score: sc };
+  }).sort((a,b) => b.score.total - a.score.total);
+
+  const l2Only = l2Results.filter(r => useRsi && r.chart.rsi > rsiThresh).map(r => {
+    const sc = scoreStock(r.fund, r.chart, macro);
+    return { ...r, score: sc };
+  }).sort((a,b) => b.score.total - a.score.total);
+
+  return { scored, l2Only, l2WithChart: l2Results, l3Results, wlCount: allStocks.length };
+}
+
 // ══════════ MAIN SCAN ENGINE ══════════
 let scanRunning = false;
 async function startScan() {
@@ -1128,22 +1218,10 @@ async function startScan() {
   const hasUS = currentScanMode === 'fullmarket' && selectedMarkets.includes('us');
   const isTWOnly = hasTW && !hasUS;
 
-  if (currentScanMode === 'fullmarket' && hasUS) {
-    document.getElementById('scan-status').textContent = '正在從 Yahoo Finance 拉取美股清單...';
-    wl = [];
-    const stocks = await fetchMarketStocks('us');
-    wl.push(...stocks);
-    wl = [...new Set(wl)];
-    if (!wl.length && !hasTW) {
-      document.getElementById('scan-status').textContent = '無法取得市場數據，請稍後再試';
-      clearInterval(timer); btn.disabled=false; btn.textContent='🔍 開始掃描'; stopBtn.style.display='none'; scanRunning=false;
-      return;
-    }
-    document.getElementById('scan-status').textContent = `已取得 ${wl.length} 支美股${hasTW ? '，台股將使用 Neon DB...' : ''}`;
-  } else if (!hasTW) {
-    wl = getWatchlist();
+  if (currentScanMode === 'fullmarket') {
+    wl = []; // 全市場掃描用 DB 路徑，不需要 Yahoo 清單
   } else {
-    wl = []; // 純台股模式，wl 不需要
+    wl = getWatchlist();
   }
   // 讀取勾選狀態和值
   const useScore = document.getElementById('chk-score').checked;
@@ -1194,51 +1272,70 @@ async function startScan() {
   updateLayer(1, 'pass', `宏觀通過：${macro.regime}（F&G ${macro.fg}/100, VIX ${macro.vix}）`, '通過');
   if (scanAborted) { clearInterval(timer); btn.disabled=false; btn.textContent='🔍 開始掃描'; stopBtn.style.display='none'; scanRunning=false; return; }
 
-  // ═══ 台股掃描：直接用 Neon DB 數據 ═══
-  if (hasTW) {
-    const twResult = await scanTaiwanStocksFromDB(macro, updateLayer, rsiThresh, useRsi, minScore);
-    const { scored: twScored, l2Only: twL2Only, l2WithChart: twL2, l3Results: twL3, wlCount: twCount } = twResult;
+  // ═══ 全市場 DB 快速掃描 ═══
+  if (currentScanMode === 'fullmarket' && (hasTW || hasUS)) {
+    let allScored = [], allL2Only = [], allOpp = [], allWatch = [];
+    let totalScanned = 0, totalL2 = 0, totalL3 = 0;
+    const maxOpp = 15, maxWatch = 30;
 
-    if (!hasUS) {
-      // 純台股：直接輸出
-      updateLayer(4, 'pass', `完整評分完成`, `${twScored.length}支進入決賽`);
-      document.getElementById('scan-fill').style.width = '100%';
-      const maxOpp = 15, maxWatch = 30;
+    // 台股
+    if (hasTW) {
+      const tw = await scanTaiwanStocksFromDB(macro, updateLayer, rsiThresh, useRsi, minScore);
       const twMinScore = useScore ? minScore : 50;
-      const opportunities = twScored.filter(r => r.score.total >= twMinScore).slice(0, maxOpp);
       const twWatchMin = Math.max(35, twMinScore - 15);
-      const watchlist = [...twScored.filter(r => r.score.total < twMinScore && r.score.total >= twWatchMin), ...twL2Only.filter(r => r.score.total >= twWatchMin)].slice(0, maxWatch);
-      clearInterval(timer);
-      const elapsed = ((performance.now()-t0)/1000).toFixed(1);
-      document.getElementById('scan-timer').textContent = elapsed+'s';
-      document.getElementById('scan-status').textContent = `台股全市場掃描完成 ✓（${elapsed}s）— 使用 Neon DB 本地數據`;
-      results.classList.remove('hidden');
-      let html = `<p class="sec-t" style="margin-top:12px;">📊 台股全市場掃描摘要 · 環境 ${macro.regime} · 掃描 ${twCount} 支 · 初篩 ${twL2.length} 支 · 技術面 ${twL3.length} 支 · 進場機會 ${opportunities.length} 支</p>`;
-      if (opportunities.length > 0) {
-        html += `<p class="sec-t">🎯 進場機會（總分 ≥ ${twMinScore}）</p>`;
-        opportunities.forEach(r => { html += renderOpportunityCard(r, macro); });
-      } else if (twScored.length > 0 || twL2Only.length > 0) {
-        html += renderScenario4(twCount, twScored[0] || twL2Only[0]);
-      } else {
-        html += renderScenario4(twCount, null);
-      }
-      if (watchlist.length > 0) {
-        html += `<p class="sec-t" style="margin-top:12px;">👀 觀察清單（總分 ${twWatchMin}–${twMinScore-1}）</p><div class="card">`;
-        watchlist.forEach(r => { html += renderWatchlistRow(r); });
-        html += '</div>';
-      }
-      results.innerHTML = html;
-      btn.disabled=false; btn.textContent='🔍 開始掃描'; stopBtn.style.display='none'; scanRunning=false;
-      return;
+      allScored.push(...tw.scored.filter(r => r.score.total >= twMinScore));
+      allWatch.push(...tw.scored.filter(r => r.score.total < twMinScore && r.score.total >= twWatchMin));
+      allWatch.push(...tw.l2Only.filter(r => r.score.total >= twWatchMin));
+      totalScanned += tw.wlCount; totalL2 += tw.l2WithChart.length; totalL3 += tw.l3Results.length;
     }
-    // 美股+台股混合：台股結果先存起來，等美股掃完再合併
-    // (美股流程在下方繼續)
+
+    // 美股
+    if (hasUS) {
+      const us = await scanUSStocksFromDB(macro, updateLayer, rsiThresh, useRsi, upsideThresh, useUpside, pegMax, usePeg, minScore, useScore);
+      allScored.push(...us.scored.filter(r => r.score.total >= minScore));
+      allWatch.push(...us.scored.filter(r => r.score.total < minScore && r.score.total >= 50));
+      allWatch.push(...us.l2Only.filter(r => r.score.total >= 50));
+      totalScanned += us.wlCount; totalL2 += us.l2WithChart.length; totalL3 += us.l3Results.length;
+    }
+
+    // 排序
+    allScored.sort((a,b) => b.score.total - a.score.total);
+    allWatch.sort((a,b) => b.score.total - a.score.total);
+    const opportunities = allScored.slice(0, maxOpp);
+    const watchlist = allWatch.slice(0, maxWatch);
+
+    // 輸出
+    updateLayer(4, 'pass', `完整評分完成`, `${allScored.length}支進場 + ${allWatch.length}支觀察`);
+    document.getElementById('scan-fill').style.width = '100%';
+    clearInterval(timer);
+    const elapsed = ((performance.now()-t0)/1000).toFixed(1);
+    document.getElementById('scan-timer').textContent = elapsed+'s';
+    const mktLabel = [hasTW?'🇹🇼台股':'', hasUS?'🇺🇸美股':''].filter(Boolean).join('+');
+    document.getElementById('scan-status').textContent = `${mktLabel}全市場掃描完成 ✓（${elapsed}s）— 使用 Neon DB`;
+    results.classList.remove('hidden');
+
+    let html = `<p class="sec-t" style="margin-top:12px;">📊 掃描摘要 · ${mktLabel} · 環境 ${macro.regime} · 掃描 ${totalScanned} 支 · 初篩 ${totalL2} 支 · 技術面 ${totalL3} 支 · 進場 ${opportunities.length} 支</p>`;
+    if (opportunities.length > 0) {
+      html += `<p class="sec-t">🎯 進場機會（總分 ≥ ${minScore || 50}）</p>`;
+      opportunities.forEach(r => { html += renderOpportunityCard(r, macro); });
+    } else if (allScored.length > 0 || allWatch.length > 0) {
+      html += renderScenario4(totalScanned, allWatch[0] || null);
+    } else {
+      html += renderScenario4(totalScanned, null);
+    }
+    if (watchlist.length > 0) {
+      html += `<p class="sec-t" style="margin-top:12px;">👀 觀察清單（50–${(minScore||65)-1} 分）</p><div class="card">`;
+      watchlist.forEach(r => { html += renderWatchlistRow(r); });
+      html += '</div>';
+    }
+    results.innerHTML = html;
+    btn.disabled=false; btn.textContent='🔍 開始掃描'; stopBtn.style.display='none'; scanRunning=false;
+    return;
   }
 
-  // ═══ 美股/混合掃描：原有 Yahoo Finance 流程 ═══
+  // ═══ 觀察清單模式：原有 Yahoo Finance 流程 ═══
   // ── L2: Valuation quick screen
-  const modeLabel = currentScanMode === 'fullmarket' ? '（全市場）' : '';
-  updateLayer(2, 'run', `第二層：估值初篩 ${wl.length} 支${modeLabel}...`, '進行中');
+  updateLayer(2, 'run', `第二層：估值初篩 ${wl.length} 支...`, '進行中');
   const l2Results = [];
   const batchSize = 5;
   for (let i=0; i<wl.length; i+=batchSize) {
