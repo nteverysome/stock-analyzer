@@ -1,6 +1,7 @@
 {
   "framework": null,
-  "buildCommand": "",
+  "installCommand": "npm install",
+  "buildCommand": "echo 'build complete'",
   "outputDirectory": "public",
   "headers": [
     {
