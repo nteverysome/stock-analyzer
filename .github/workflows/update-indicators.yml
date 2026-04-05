@@ -1,62 +1,127 @@
-name: 🌙 Daily Market Data Update
+name: 🌙 Nightly Market Data Update
 
 on:
   schedule:
-    # 每晚 23:00（台灣時間，UTC+8）執行
-    # cron: '分 時 日 月 周' (UTC 時間)
-    # 台灣時間 23:00 = UTC 時間 15:00
-    - cron: '0 15 * * *'
-  
-  # 允許手動觸發（用於測試）
+    # ═══ 台股：台灣時間 22:30（收盤後9小時，數據穩定）═══
+    # 台灣 22:30 = UTC 14:30
+    - cron: '30 14 * * 1-5'
+
+    # ═══ 美股：台灣時間 06:30（美股收盤後2.5小時）═══
+    # 台灣 06:30 = UTC 22:30
+    - cron: '30 22 * * 1-5'
+
+  # 手動觸發（可選 market）
   workflow_dispatch:
+    inputs:
+      market:
+        description: '要更新的市場'
+        required: false
+        default: 'all'
+        type: choice
+        options: ['all', 'tw', 'us']
 
 jobs:
-  update-indicators:
+  update-tw:
+    name: 🇹🇼 台股數據更新
     runs-on: ubuntu-latest
-    
+    # 排程時：只在 14:30 UTC 跑（台灣晚間）；手動時：all 或 tw
+    if: >
+      github.event_name == 'workflow_dispatch' && (github.event.inputs.market == 'all' || github.event.inputs.market == 'tw')
+      || github.event_name == 'schedule' && github.event.schedule == '30 14 * * 1-5'
+    timeout-minutes: 60
+
     steps:
-      - name: 📥 Checkout 代碼
-        uses: actions/checkout@v3
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
 
-      - name: 🔧 設置 Node.js
-        uses: actions/setup-node@v3
+      - name: 🔧 Setup Node.js 20
+        uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
 
-      - name: 📦 安裝依賴
-        run: |
-          npm install @upstash/redis node-fetch
+      - name: 📦 Install dependencies
+        run: npm ci
 
-      - name: 🚀 執行指標更新
+      - name: 🇹🇼 更新台股技術指標（tw_daily_prices + tw_indicators）
         env:
-          UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
-          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
-          node scripts/update-indicators.js
+          echo "🕐 開始時間: $(TZ=Asia/Taipei date)"
+          node scripts/update-tw-data.mjs || echo "⚠️ 台股價格更新失敗"
 
-      - name: 📊 推送更新通知
+      - name: 🇹🇼 更新台股基本面（tw_fundamentals）
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          node scripts/fetch-tw-fundamentals.mjs --only-listed --skip-existing --batch 3 --delay 2000
+
+      - name: 📊 台股更新摘要
         if: always()
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
-          echo "✅ 指標更新完成"
-          echo "時間: $(date)"
+          node -e "
+            import{Pool}from'@neondatabase/serverless';
+            const p=new Pool({connectionString:process.env.DATABASE_URL,ssl:true});
+            const{rows}=await p.query(\`SELECT
+              (SELECT COUNT(DISTINCT symbol) FROM tw_indicators WHERE indicator_date>=CURRENT_DATE-1) as ind,
+              (SELECT COUNT(*) FROM tw_fundamentals WHERE update_date=CURRENT_DATE) as fund\`);
+            console.log('🇹🇼 台股更新完成:',rows[0]);
+            await p.end();
+          "
 
-      # 可選：將結果推送到 Slack 或其他通知服務
-      # - name: 🔔 Slack 通知
-      #   if: failure()
-      #   uses: slackapi/slack-github-action@v1
-      #   with:
-      #     webhook-url: ${{ secrets.SLACK_WEBHOOK }}
+  update-us:
+    name: 🇺🇸 美股數據更新
+    runs-on: ubuntu-latest
+    # 排程時：只在 22:30 UTC 跑（美股盤後）；手動時：all 或 us
+    if: >
+      github.event_name == 'workflow_dispatch' && (github.event.inputs.market == 'all' || github.event.inputs.market == 'us')
+      || github.event_name == 'schedule' && github.event.schedule == '30 22 * * 1-5'
+    timeout-minutes: 60
 
----
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
 
-# 額外選項：如果要在 Vercel 上運行（不需要 GitHub Actions）
+      - name: 🔧 Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
-# 在 vercel.json 中添加：
-# {
-#   "crons": [{
-#     "path": "/api/cron/update-indicators",
-#     "schedule": "0 23 * * *"
-#   }]
-# }
+      - name: 📦 Install dependencies
+        run: npm ci
 
-# 然後在 api/cron/update-indicators.js 中實現相同邏輯
+      - name: 🇺🇸 Step 1 - 更新美股清單
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          echo "🕐 開始時間: $(TZ=America/New_York date)"
+          node scripts/fetch-us-stocks.mjs --step 1
+
+      - name: 🇺🇸 Step 2 - 更新美股基本面
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          node scripts/fetch-us-stocks.mjs --step 2 --skip-existing --delay 1200
+
+      - name: 🇺🇸 Step 3 - 更新美股價格+技術指標
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          node scripts/fetch-us-stocks.mjs --step 3 --skip-existing --delay 1200
+
+      - name: 📊 美股更新摘要
+        if: always()
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          node -e "
+            import{Pool}from'@neondatabase/serverless';
+            const p=new Pool({connectionString:process.env.DATABASE_URL,ssl:true});
+            const{rows}=await p.query(\`SELECT
+              (SELECT COUNT(*) FROM us_stocks) as stocks,
+              (SELECT COUNT(DISTINCT symbol) FROM us_fundamentals WHERE update_date=CURRENT_DATE) as fund,
+              (SELECT COUNT(DISTINCT symbol) FROM us_indicators) as ind\`);
+            console.log('🇺🇸 美股更新完成:',rows[0]);
+            await p.end();
+          "
