@@ -135,7 +135,7 @@ a:hover{text-decoration:underline;}
 /* ── M3 Sort/Filter */
 .m3-group{grid-column:1/-1;padding:12px;background:#fff;border:1px solid #e8e6df;border-radius:8px;}
 .m3-group-t{font-size:11px;font-weight:600;color:#5f5e5a;margin:0 0 10px 0;letter-spacing:.04em;text-transform:uppercase;}
-.m3-content{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.m3-content{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;}
 .m3-col{display:flex;flex-direction:column;gap:8px;}
 .m3-row{display:flex;align-items:center;gap:8px;padding:8px;background:#f9f8f4;border-radius:6px;border:1px solid #e8e6df;}
 .m3-row input[type=checkbox]{width:18px;height:18px;cursor:pointer;flex-shrink:0;}
@@ -354,11 +354,12 @@ a:hover{text-decoration:underline;}
     <p style="font-size:10px;color:#888780;margin-bottom:14px;">偏好激進：降低門檻 / 偏好保守：提高門檻 · VR ≤ 0.1 找底部、≥ 1000 找頂部</p>
 
     <!-- M3 排序與篩選 -->
-    <p class="sec-t">📊 M3 雙引擎篩選（可選、分數設定）</p>
+    <p class="sec-t">📊 多維篩選（可選、分數設定）</p>
     <div class="m3-group">
       <div class="m3-content">
-        <!-- 左欄：分數篩選 -->
+        <!-- 第1列：M3 相關 -->
         <div class="m3-col">
+          <div class="m3-group-t">🎯 M3 技術面</div>
           <div class="m3-row">
             <input type="checkbox" id="m3s-ck" onchange="updateM3Filters()" checked>
             <label for="m3s-ck">M3 分數 ≥</label>
@@ -370,8 +371,25 @@ a:hover{text-decoration:underline;}
             <input type="number" id="m3base-val" value="30" min="0" max="100" onchange="updateM3Filters()" onkeyup="updateM3Filters()" disabled>
           </div>
         </div>
-        <!-- 右欄：引擎狀態勾選 -->
+
+        <!-- 第2列：M2 估值 + 護城河 -->
         <div class="m3-col">
+          <div class="m3-group-t">💰 估值 & 護城河</div>
+          <div class="m3-row">
+            <input type="checkbox" id="m2s-ck" onchange="updateM3Filters()">
+            <label for="m2s-ck">M2 估值 ≥</label>
+            <input type="number" id="m2s-val" value="40" min="0" max="100" onchange="updateM3Filters()" onkeyup="updateM3Filters()" disabled>
+          </div>
+          <div class="m3-row">
+            <input type="checkbox" id="moat-ck" onchange="updateM3Filters()">
+            <label for="moat-ck">護城河 ≥</label>
+            <input type="number" id="moat-val" value="50" min="0" max="100" onchange="updateM3Filters()" onkeyup="updateM3Filters()" disabled>
+          </div>
+        </div>
+
+        <!-- 第3列：引擎狀態上半 -->
+        <div class="m3-col">
+          <div class="m3-group-t">🔥 引擎狀態</div>
           <div class="m3-row">
             <input type="checkbox" id="m3-volcano-buy" onchange="updateM3Filters()">
             <label for="m3-volcano-buy">🔥 動能突破</label>
@@ -380,18 +398,19 @@ a:hover{text-decoration:underline;}
             <input type="checkbox" id="m3-sniper-div" onchange="updateM3Filters()">
             <label for="m3-sniper-div">🎯 底背離</label>
           </div>
-        </div>
-        <div class="m3-col">
           <div class="m3-row">
             <input type="checkbox" id="m3-sniper-oversold" onchange="updateM3Filters()">
             <label for="m3-sniper-oversold">📉 量縮超跌</label>
           </div>
+        </div>
+
+        <!-- 第4列：引擎狀態下半 -->
+        <div class="m3-col">
+          <div class="m3-group-t">⚡ 其他狀態</div>
           <div class="m3-row">
             <input type="checkbox" id="m3-sniper-support" onchange="updateM3Filters()">
             <label for="m3-sniper-support">🛡️ 支撐防守</label>
           </div>
-        </div>
-        <div class="m3-col">
           <div class="m3-row">
             <input type="checkbox" id="m3-warning" onchange="updateM3Filters()">
             <label for="m3-warning">⚡ 波動異常</label>
@@ -401,14 +420,15 @@ a:hover{text-decoration:underline;}
             <label for="m3-selloff">⚠️ 爆量崩盤</label>
           </div>
         </div>
+
         <!-- 排序方式 -->
         <div class="m3-sort-box">
           <div class="m3-sort-box-t">排序依據（單選）</div>
           <div class="m3-sort-opts">
             <label class="m3-sort-radio"><input type="radio" name="m3-sort" value="total" checked onchange="updateM3Filters()"><label>總分</label></label>
             <label class="m3-sort-radio"><input type="radio" name="m3-sort" value="m3s" onchange="updateM3Filters()"><label>M3分</label></label>
-            <label class="m3-sort-radio"><input type="radio" name="m3-sort" value="m3BaseScore" onchange="updateM3Filters()"><label>基底</label></label>
-            <label class="m3-sort-radio"><input type="radio" name="m3-sort" value="m1s" onchange="updateM3Filters()"><label>M1</label></label>
+            <label class="m3-sort-radio"><input type="radio" name="m3-sort" value="m2s" onchange="updateM3Filters()"><label>M2估</label></label>
+            <label class="m3-sort-radio"><input type="radio" name="m3-sort" value="m1s" onchange="updateM3Filters()"><label>M1環</label></label>
           </div>
         </div>
       </div>
@@ -625,6 +645,8 @@ document.addEventListener('DOMContentLoaded', () => {
 let m3Filters = {
   m3sMin: 30, m3sEnabled: true,
   baseMin: 30, baseEnabled: false,
+  m2sMin: 40, m2sEnabled: false,
+  moatMin: 50, moatEnabled: false,
   states: []  // 選中的狀態
 };
 let m3SortKey = 'total';
@@ -637,6 +659,10 @@ function updateM3Filters() {
   m3Filters.m3sMin = parseInt(document.getElementById('m3s-val').value) || 0;
   m3Filters.baseEnabled = document.getElementById('m3base-ck').checked;
   m3Filters.baseMin = parseInt(document.getElementById('m3base-val').value) || 0;
+  m3Filters.m2sEnabled = document.getElementById('m2s-ck').checked;
+  m3Filters.m2sMin = parseInt(document.getElementById('m2s-val').value) || 0;
+  m3Filters.moatEnabled = document.getElementById('moat-ck').checked;
+  m3Filters.moatMin = parseInt(document.getElementById('moat-val').value) || 0;
 
   // 更新狀態篩選
   m3Filters.states = [];
@@ -658,6 +684,8 @@ function updateM3Filters() {
 
   // 啟用/停用相關輸入
   document.getElementById('m3base-val').disabled = !m3Filters.baseEnabled;
+  document.getElementById('m2s-val').disabled = !m3Filters.m2sEnabled;
+  document.getElementById('moat-val').disabled = !m3Filters.moatEnabled;
 
   if (lastScanResults) rerenderResults();
 }
@@ -679,6 +707,8 @@ function m3StateMatch(sc) {
 function m3ScoreMatch(sc) {
   if (m3Filters.m3sEnabled && sc.m3s < m3Filters.m3sMin) return false;
   if (m3Filters.baseEnabled && (sc.m3BaseScore || 0) < m3Filters.baseMin) return false;
+  if (m3Filters.m2sEnabled && sc.m2s < m3Filters.m2sMin) return false;
+  if (m3Filters.moatEnabled && (sc.moat || 0) < m3Filters.moatMin) return false;
   return true;
 }
 function rerenderResults() {
@@ -699,6 +729,8 @@ function rerenderResults() {
   const filterParts = [];
   if (m3Filters.m3sEnabled) filterParts.push(`M3≥${m3Filters.m3sMin}`);
   if (m3Filters.baseEnabled) filterParts.push(`基≥${m3Filters.baseMin}`);
+  if (m3Filters.m2sEnabled) filterParts.push(`M2≥${m3Filters.m2sMin}`);
+  if (m3Filters.moatEnabled) filterParts.push(`護≥${m3Filters.moatMin}`);
   if (m3Filters.states.length > 0) filterParts.push(`${m3Filters.states.length}狀`);
   const filterLbl = filterParts.length > 0 ? `　篩選：${filterParts.join('·')}` : '';
   let html = `<p class="sec-t" style="margin-top:12px;">📊 掃描摘要 · ${mktLabel} · 排序：${sortLbl}${filterLbl} · 掃描 ${totalScanned} 支 · 顯示 ${opportunities.length + watchlist.length} 支</p>`;
@@ -971,9 +1003,11 @@ function scoreStock(fund, chart, macro) {
   const rr = (price&&stopL&&price>stopL) ? (fv-price)/(price-stopL) : 0;
   const m5s = rr>=2?80:rr>=1.5?60:rr>=1?40:20;
   const total = Math.round(m1s*0.20 + m2s*0.30 + m3s*0.25 + m4s*0.15 + m5s*0.10);
+  const moat = Math.min(100, 50 + (gm >= 50 ? 25 : gm >= 40 ? 15 : gm >= 30 ? 8 : 0) +
+    (upPct >= 20 ? 15 : upPct >= 10 ? 10 : 0));
   return {
     m1s, m2s, m3s, m4s, m5s, total, p, b, fullK, pos, rr, upPct, dPct,
-    price, target, stopL, fv, rsi, peg, gm, regime, mul, align, dynK,
+    price, target, stopL, fv, rsi, peg, gm, moat, regime, mul, align, dynK,
     tripleConfirm, confirmMom, confirmChip, confirmSup,
     m3State: usM3State, m3Label: 'M3 雙引擎v3.2',
   };
@@ -1171,10 +1205,14 @@ function scoreTWStock(dbData, macro) {
   const wM3adj = hasFund ? 0.30 : 0.35;
   const total = Math.round(m1s * wM1 + m2s * wM2 + m3s * wM3adj + m4s * wM4 + m5s * wM5);
 
+  // 護城河評分（基於毛利率和成長率）
+  const moat = Math.min(100, 50 + (gmVal >= 40 ? 20 : gmVal >= 30 ? 10 : 0) +
+    (epsG >= 20 ? 15 : epsG >= 10 ? 8 : 0));
+
   return {
     m1s, m2s, m3s, m4s, m5s, total, p, b, fullK, pos, rr, upPct, dPct,
     price, target, stopL, fv, rsi,
-    peg: pegVal || null, gm: gmVal || 0, regime, mul, align: tripleConfirm, dynK,
+    peg: pegVal || null, gm: gmVal || 0, moat, regime, mul, align: tripleConfirm, dynK,
     tripleConfirm, confirmMom, confirmChip: confirmKD, confirmSup: confirmMACD,
     kd, kdSlow, macdHist, w52pos, kdGoldenCross, maAligned,
     hasFund, m2Mode, analystTarget: atVal, analystCount: atCnt,

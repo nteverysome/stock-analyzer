@@ -5,6 +5,30 @@
  */
 import { Pool } from '@neondatabase/serverless';
 
+// 護城河簡易評分：基於毛利率和成長率（0-100 分制）
+function calculateMoatScore(gm, om, eps) {
+  let score = 50; // 預設中性
+  // 毛利率（競爭優勢指標）
+  if (gm != null) {
+    if (gm >= 50) score += 20;
+    else if (gm >= 40) score += 12;
+    else if (gm >= 30) score += 5;
+  }
+  // 營業利率（成本控制能力）
+  if (om != null) {
+    if (om >= 25) score += 15;
+    else if (om >= 15) score += 8;
+    else if (om >= 10) score += 3;
+  }
+  // 成長率（持續擴張能力）
+  if (eps != null) {
+    if (eps >= 30) score += 15;
+    else if (eps >= 20) score += 10;
+    else if (eps >= 10) score += 5;
+  }
+  return Math.min(100, score);
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST' && req.method !== 'GET') {
     return res.status(405).json({ error: 'POST or GET only' });
@@ -124,6 +148,12 @@ export default async function handler(req, res) {
           market_cap: r.market_cap != null ? parseInt(r.market_cap) : null,
           dividend_yield: r.dividend_yield != null ? parseFloat(r.dividend_yield) : null,
           has_fundamentals: r.pe_ttm != null || r.gross_margin != null,
+          // 護城河簡易評分（基於毛利率和成長率）
+          moat: calculateMoatScore(
+            r.gross_margin ? parseFloat(r.gross_margin) : null,
+            r.operating_margin ? parseFloat(r.operating_margin) : null,
+            r.eps_growth ? parseFloat(r.eps_growth) : null
+          ),
         };
       });
 
