@@ -133,18 +133,22 @@ a:hover{text-decoration:underline;}
 .vr-item select{padding:2px 4px;border:1px solid #d3d1c7;border-radius:5px;font-size:11px;background:#fff;}
 .vr-item input[type=number]{width:52px;padding:2px 4px;border:1px solid #d3d1c7;border-radius:5px;font-size:11px;text-align:center;}
 /* ── M3 Sort/Filter */
-.m3-group{grid-column:1/-1;padding:10px 12px;background:#fff;border:1px solid #e8e6df;border-radius:8px;}
-.m3-group-t{font-size:10px;font-weight:600;color:#888780;margin-bottom:8px;letter-spacing:.04em;}
-.m3-sort-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;}
-.m3-chip{display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border:1.5px solid #d3d1c7;border-radius:20px;font-size:11px;cursor:pointer;background:#f9f8f4;color:#5f5e5a;transition:all .15s;user-select:none;}
-.m3-chip:hover{border-color:#378ADD;color:#378ADD;}
-.m3-chip.active{border-color:#378ADD;background:#E6F1FB;color:#185FA5;font-weight:600;}
-.m3-chip input[type=radio],.m3-chip input[type=checkbox]{display:none;}
-.m3-state-row{display:flex;flex-wrap:wrap;gap:5px;}
-.m3-state-chip{display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border:1px solid #e8e6df;border-radius:14px;font-size:10px;cursor:pointer;background:#fff;color:#888780;transition:all .15s;user-select:none;}
-.m3-state-chip:hover{border-color:#639922;color:#639922;}
-.m3-state-chip.active{border-color:#639922;background:#EAF3DE;color:#3B6D11;font-weight:600;}
-.m3-state-chip input[type=checkbox]{display:none;}
+.m3-group{grid-column:1/-1;padding:12px;background:#fff;border:1px solid #e8e6df;border-radius:8px;}
+.m3-group-t{font-size:11px;font-weight:600;color:#5f5e5a;margin:0 0 10px 0;letter-spacing:.04em;text-transform:uppercase;}
+.m3-content{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.m3-col{display:flex;flex-direction:column;gap:8px;}
+.m3-row{display:flex;align-items:center;gap:8px;padding:8px;background:#f9f8f4;border-radius:6px;border:1px solid #e8e6df;}
+.m3-row input[type=checkbox]{width:18px;height:18px;cursor:pointer;flex-shrink:0;}
+.m3-row label{display:flex;align-items:center;gap:6px;flex:1;cursor:pointer;user-select:none;font-size:11px;color:#5f5e5a;}
+.m3-row input[type=number]{width:50px;padding:4px 6px;border:1px solid #d3d1c7;border-radius:4px;font-size:10px;text-align:center;}
+.m3-row input[type=number]:focus{outline:none;border-color:#378ADD;}
+.m3-sort-box{grid-column:1/-1;padding:8px;background:#f9f8f4;border-radius:6px;border:1px solid #e8e6df;}
+.m3-sort-box-t{font-size:10px;color:#888780;margin-bottom:6px;font-weight:500;}
+.m3-sort-opts{display:flex;flex-wrap:wrap;gap:6px;}
+.m3-sort-radio{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#fff;border:1px solid #d3d1c7;border-radius:5px;font-size:10px;cursor:pointer;transition:all .1s;}
+.m3-sort-radio:hover{border-color:#378ADD;background:#E6F1FB;}
+.m3-sort-radio input[type=radio]{width:14px;height:14px;cursor:pointer;}
+.m3-sort-radio input[type=radio]:checked+label{font-weight:600;color:#185FA5;}
 .m3-sub{font-size:10px;color:#888780;margin-top:4px;}
 .empty-msg{padding:20px;text-align:center;color:#888780;font-size:13px;background:#f9f8f4;border-radius:8px;margin:8px 0;}
 /* ── Section titles */
@@ -350,29 +354,64 @@ a:hover{text-decoration:underline;}
     <p style="font-size:10px;color:#888780;margin-bottom:14px;">偏好激進：降低門檻 / 偏好保守：提高門檻 · VR ≤ 0.1 找底部、≥ 1000 找頂部</p>
 
     <!-- M3 排序與篩選 -->
-    <p class="sec-t">📊 M3 雙引擎排序與篩選</p>
+    <p class="sec-t">📊 M3 雙引擎篩選（可選、分數設定）</p>
     <div class="m3-group">
-      <div class="m3-group-t">排序依據（點選切換，可單選）</div>
-      <div class="m3-sort-row" id="m3-sort-row">
-        <label class="m3-chip active" onclick="setM3Sort('total')"><input type="radio" name="m3sort" value="total" checked>📊 總分</label>
-        <label class="m3-chip" onclick="setM3Sort('m3s')"><input type="radio" name="m3sort" value="m3s">🎯 M3 分數</label>
-        <label class="m3-chip" onclick="setM3Sort('m3BaseScore')"><input type="radio" name="m3sort" value="m3BaseScore">📐 M3 基底分</label>
-        <label class="m3-chip" onclick="setM3Sort('m1s')"><input type="radio" name="m3sort" value="m1s">🌍 M1 環境</label>
-        <label class="m3-chip" onclick="setM3Sort('m2s')"><input type="radio" name="m3sort" value="m2s">💰 M2 估值</label>
-        <label class="m3-chip" onclick="setM3Sort('m4s')"><input type="radio" name="m3sort" value="m4s">📈 M4 凱利</label>
+      <div class="m3-content">
+        <!-- 左欄：分數篩選 -->
+        <div class="m3-col">
+          <div class="m3-row">
+            <input type="checkbox" id="m3s-ck" onchange="updateM3Filters()" checked>
+            <label for="m3s-ck">M3 分數 ≥</label>
+            <input type="number" id="m3s-val" value="30" min="0" max="100" onchange="updateM3Filters()" onkeyup="updateM3Filters()">
+          </div>
+          <div class="m3-row">
+            <input type="checkbox" id="m3base-ck" onchange="updateM3Filters()">
+            <label for="m3base-ck">基底分 ≥</label>
+            <input type="number" id="m3base-val" value="30" min="0" max="100" onchange="updateM3Filters()" onkeyup="updateM3Filters()" disabled>
+          </div>
+        </div>
+        <!-- 右欄：引擎狀態勾選 -->
+        <div class="m3-col">
+          <div class="m3-row">
+            <input type="checkbox" id="m3-volcano-buy" onchange="updateM3Filters()">
+            <label for="m3-volcano-buy">🔥 動能突破</label>
+          </div>
+          <div class="m3-row">
+            <input type="checkbox" id="m3-sniper-div" onchange="updateM3Filters()">
+            <label for="m3-sniper-div">🎯 底背離</label>
+          </div>
+        </div>
+        <div class="m3-col">
+          <div class="m3-row">
+            <input type="checkbox" id="m3-sniper-oversold" onchange="updateM3Filters()">
+            <label for="m3-sniper-oversold">📉 量縮超跌</label>
+          </div>
+          <div class="m3-row">
+            <input type="checkbox" id="m3-sniper-support" onchange="updateM3Filters()">
+            <label for="m3-sniper-support">🛡️ 支撐防守</label>
+          </div>
+        </div>
+        <div class="m3-col">
+          <div class="m3-row">
+            <input type="checkbox" id="m3-warning" onchange="updateM3Filters()">
+            <label for="m3-warning">⚡ 波動異常</label>
+          </div>
+          <div class="m3-row">
+            <input type="checkbox" id="m3-selloff" onchange="updateM3Filters()">
+            <label for="m3-selloff">⚠️ 爆量崩盤</label>
+          </div>
+        </div>
+        <!-- 排序方式 -->
+        <div class="m3-sort-box">
+          <div class="m3-sort-box-t">排序依據（單選）</div>
+          <div class="m3-sort-opts">
+            <label class="m3-sort-radio"><input type="radio" name="m3-sort" value="total" checked onchange="updateM3Filters()"><label>總分</label></label>
+            <label class="m3-sort-radio"><input type="radio" name="m3-sort" value="m3s" onchange="updateM3Filters()"><label>M3分</label></label>
+            <label class="m3-sort-radio"><input type="radio" name="m3-sort" value="m3BaseScore" onchange="updateM3Filters()"><label>基底</label></label>
+            <label class="m3-sort-radio"><input type="radio" name="m3-sort" value="m1s" onchange="updateM3Filters()"><label>M1</label></label>
+          </div>
+        </div>
       </div>
-      <div class="m3-group-t" style="margin-top:6px;">M3 引擎狀態篩選（可多選，不勾 = 全部顯示）</div>
-      <div class="m3-state-row" id="m3-state-row">
-        <label class="m3-state-chip" onclick="toggleM3State(this)"><input type="checkbox" value="VOLCANO_BUY">🔥 動能突破</label>
-        <label class="m3-state-chip" onclick="toggleM3State(this)"><input type="checkbox" value="SNIPER_DIVERGENCE">🎯 底背離</label>
-        <label class="m3-state-chip" onclick="toggleM3State(this)"><input type="checkbox" value="SNIPER_OVERSOLD">📉 量縮超跌</label>
-        <label class="m3-state-chip" onclick="toggleM3State(this)"><input type="checkbox" value="SNIPER_SUPPORT">🛡️ 支撐防守</label>
-        <label class="m3-state-chip" onclick="toggleM3State(this)"><input type="checkbox" value="VOLCANO_WARNING">⚡ 波動異常</label>
-        <label class="m3-state-chip" onclick="toggleM3State(this)"><input type="checkbox" value="VOLCANO_SELLOFF">⚠️ 爆量崩盤</label>
-        <label class="m3-state-chip" onclick="toggleM3State(this)"><input type="checkbox" value="OVERBOUGHT_PENALTY">🚨 超買</label>
-        <label class="m3-state-chip" onclick="toggleM3State(this)"><input type="checkbox" value="NORMAL">📊 常態</label>
-      </div>
-      <div class="m3-sub">💡 勾選想看的引擎狀態，例如只看「動能突破」+「底背離」的機會。排序會即時套用到結果。</div>
     </div>
 
     <!-- Start scan button -->
@@ -583,46 +622,72 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ══════════ M3 排序與篩選 ══════════
-let m3SortKey = 'total';       // 預設按總分排序
-let m3StateFilters = [];       // 空 = 全部顯示
-let lastScanResults = null;    // 快取掃描結果，用於即時重排
+let m3Filters = {
+  m3sMin: 30, m3sEnabled: true,
+  baseMin: 30, baseEnabled: false,
+  states: []  // 選中的狀態
+};
+let m3SortKey = 'total';
+let lastScanResults = null;
 let lastScanMacro = null;
 
-function setM3Sort(key) {
-  m3SortKey = key;
-  document.querySelectorAll('#m3-sort-row .m3-chip').forEach(c => {
-    c.classList.toggle('active', c.querySelector('input').value === key);
+function updateM3Filters() {
+  // 更新數字篩選
+  m3Filters.m3sEnabled = document.getElementById('m3s-ck').checked;
+  m3Filters.m3sMin = parseInt(document.getElementById('m3s-val').value) || 0;
+  m3Filters.baseEnabled = document.getElementById('m3base-ck').checked;
+  m3Filters.baseMin = parseInt(document.getElementById('m3base-val').value) || 0;
+
+  // 更新狀態篩選
+  m3Filters.states = [];
+  const stateMap = {
+    'm3-volcano-buy': 'VOLCANO_BUY',
+    'm3-sniper-div': 'SNIPER_DIVERGENCE',
+    'm3-sniper-oversold': 'SNIPER_OVERSOLD',
+    'm3-sniper-support': 'SNIPER_SUPPORT',
+    'm3-warning': 'VOLCANO_WARNING',
+    'm3-selloff': 'VOLCANO_SELLOFF',
+  };
+  Object.entries(stateMap).forEach(([id, state]) => {
+    if (document.getElementById(id)?.checked) m3Filters.states.push(state);
   });
+
+  // 更新排序
+  const sortRadios = document.querySelectorAll('input[name="m3-sort"]:checked');
+  if (sortRadios.length > 0) m3SortKey = sortRadios[0].value;
+
+  // 啟用/停用相關輸入
+  document.getElementById('m3base-val').disabled = !m3Filters.baseEnabled;
+
   if (lastScanResults) rerenderResults();
 }
-function toggleM3State(el) {
-  const cb = el.querySelector('input');
-  cb.checked = !cb.checked;
-  el.classList.toggle('active', cb.checked);
-  m3StateFilters = [];
-  document.querySelectorAll('#m3-state-row input:checked').forEach(inp => m3StateFilters.push(inp.value));
-  if (lastScanResults) rerenderResults();
-}
+
 function getM3SortValue(sc) {
   if (m3SortKey === 'total') return sc.total;
   if (m3SortKey === 'm3s') return sc.m3s;
   if (m3SortKey === 'm3BaseScore') return sc.m3BaseScore || 0;
   if (m3SortKey === 'm1s') return sc.m1s;
-  if (m3SortKey === 'm2s') return sc.m2s;
-  if (m3SortKey === 'm4s') return sc.m4s;
   return sc.total;
 }
+
 function m3StateMatch(sc) {
-  if (m3StateFilters.length === 0) return true;
-  return m3StateFilters.includes(sc.m3State || 'NORMAL');
+  // 狀態篩選：若無勾選，則全部通過；若有勾選，則須符合其一
+  if (m3Filters.states.length === 0) return true;
+  return m3Filters.states.includes(sc.m3State || 'NORMAL');
+}
+
+function m3ScoreMatch(sc) {
+  if (m3Filters.m3sEnabled && sc.m3s < m3Filters.m3sMin) return false;
+  if (m3Filters.baseEnabled && (sc.m3BaseScore || 0) < m3Filters.baseMin) return false;
+  return true;
 }
 function rerenderResults() {
   if (!lastScanResults) return;
   const { allScored, allWatch, minScore, macro, totalScanned, totalL2, totalL3, mktLabel } = lastScanResults;
   const maxOpp = 20, maxWatch = 20;
-  // 篩選
-  const filteredScored = allScored.filter(r => m3StateMatch(r.score));
-  const filteredWatch = allWatch.filter(r => m3StateMatch(r.score));
+  // 篩選：同時套用狀態篩選和分數篩選
+  const filteredScored = allScored.filter(r => m3StateMatch(r.score) && m3ScoreMatch(r.score));
+  const filteredWatch = allWatch.filter(r => m3StateMatch(r.score) && m3ScoreMatch(r.score));
   // 排序
   filteredScored.sort((a,b) => getM3SortValue(b.score) - getM3SortValue(a.score));
   filteredWatch.sort((a,b) => getM3SortValue(b.score) - getM3SortValue(a.score));
@@ -631,10 +696,14 @@ function rerenderResults() {
   // 排序標籤
   const sortLabels = {total:'總分',m3s:'M3分數',m3BaseScore:'M3基底分',m1s:'M1環境',m2s:'M2估值',m4s:'M4凱利'};
   const sortLbl = sortLabels[m3SortKey]||'總分';
-  const filterLbl = m3StateFilters.length > 0 ? `　篩選：${m3StateFilters.length}種狀態` : '';
+  const filterParts = [];
+  if (m3Filters.m3sEnabled) filterParts.push(`M3≥${m3Filters.m3sMin}`);
+  if (m3Filters.baseEnabled) filterParts.push(`基≥${m3Filters.baseMin}`);
+  if (m3Filters.states.length > 0) filterParts.push(`${m3Filters.states.length}狀`);
+  const filterLbl = filterParts.length > 0 ? `　篩選：${filterParts.join('·')}` : '';
   let html = `<p class="sec-t" style="margin-top:12px;">📊 掃描摘要 · ${mktLabel} · 排序：${sortLbl}${filterLbl} · 掃描 ${totalScanned} 支 · 顯示 ${opportunities.length + watchlist.length} 支</p>`;
   if (opportunities.length > 0) {
-    html += `<p class="sec-t">🎯 進場機會（${sortLbl}排序${m3StateFilters.length?'＋狀態篩選':''}）</p>`;
+    html += `<p class="sec-t">🎯 進場機會（${sortLbl}排序）</p>`;
     opportunities.forEach(r => { html += renderOpportunityCard(r, macro); });
   } else {
     html += renderScenario4(totalScanned, filteredWatch[0] || null);
@@ -644,8 +713,8 @@ function rerenderResults() {
     watchlist.forEach(r => { html += renderWatchlistRow(r); });
     html += '</div>';
   }
-  if (filteredScored.length === 0 && filteredWatch.length === 0 && m3StateFilters.length > 0) {
-    html += `<div class="empty-msg">沒有符合所選 M3 引擎狀態的結果，請嘗試勾選更多狀態。</div>`;
+  if (filteredScored.length === 0 && filteredWatch.length === 0 && (filterParts.length > 0)) {
+    html += `<div class="empty-msg">沒有符合篩選條件的結果，請調整分數門檻或狀態篩選。</div>`;
   }
   document.getElementById('scan-results').innerHTML = html;
 }
