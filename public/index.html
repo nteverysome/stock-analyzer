@@ -1310,41 +1310,45 @@ function render(s, macro) {
   if(s.eq==='高')m2+=10;else if(s.eq==='中')m2+=5;
   if((s.consensus||'').toLowerCase().includes('strong buy'))m2+=10;
   const m2s=Math.min(100,m2);
-  // M3（三維確認：動能層 + 籌碼層 + 廣度層）
+  // M3 雙引擎動態評分系統 v3.2
   const rsi=+(s.rsi)||50;
   const vr = s.vr || null;
   const cVR = vr ? vr.currentVR : null;
-  let m3=0, vrScore=0;
-  // 維度一：動能層（RSI + MACD）
-  if(rsi<20)m3+=30;else if(rsi<30)m3+=20;else if(rsi<40)m3+=10;
-  if(s.macd==='買入')m3+=15;else if(s.macd==='中性')m3+=5;
-  // 維度二：籌碼層（VR 量比）— 直接用 VR 值計算
-  let vrChipConfirm=false, vrSupportConfirm=false;
-  if(cVR!==null){
-    // VR 值本身得分：越接近極端（0.1或1000），得分越高
-    if(cVR<=0.1){ vrScore=Math.min(40,(0.1-cVR)/0.09*40); vrChipConfirm=true; }
-    else if(cVR>=1000){ vrScore=Math.min(30,Math.min((cVR-1000)/500,1)*30); }
-    else if(cVR<50){ vrScore=(50-cVR)/50*25; }
-    else if(cVR>200){ vrScore=Math.min(20,(cVR-200)/800*20); }
-    // 加上圓點獎勵
-    if(vr.recentDot){ if(vr.recentDot.type==='green')vrScore+=10; else if(vr.recentDot.type==='yellow')vrScore+=5; }
-    // 加上K棒顏色獎勵
-    if(vr.kbar&&vr.kbar.level>0) vrScore+=vr.kbar.level*4;
-    // 支撐線確認
-    if(vr.atSupport){ vrScore+=15; vrSupportConfirm=true; }
-    else if(vr.nearSupportPct<=5) vrScore+=8;
-    m3+=Math.min(50,vrScore); // VR層最高加50分
-  }
-  // 維度三：護城河/廣度
   const moat=+(s.moat)||50;
-  if(moat>=70)m3+=10;else if(moat>=50)m3+=5;
-  const m3s=Math.min(100,m3);
-  // 三重確認（動能 + 籌碼 + 支撐）
+  // 第一階段：基底計分
+  let m3_base_max=0, m3_base_raw=0;
+  m3_base_max+=20;
+  if(rsi<20)m3_base_raw+=20;else if(rsi<30)m3_base_raw+=15;else if(rsi<40)m3_base_raw+=8;
+  m3_base_max+=20;
+  if(s.macd==='買入')m3_base_raw+=20;else if(s.macd==='中性')m3_base_raw+=10;
+  const m3BaseScore=m3_base_max>0?Math.round((m3_base_raw/m3_base_max)*100):50;
+  // 第二階段：狀態仲裁
+  let m3State='NORMAL', m3Mod=0, m3Mult=1.0;
+  let m3AtSupport=false;
+  if(vr){if(vr.atSupport)m3AtSupport=true;else if(vr.nearSupportPct!=null&&vr.nearSupportPct<=5)m3AtSupport=true;}
+  const m3Volcano=cVR!==null&&cVR>=1000;
+  const m3IsRedK=vr&&vr.kbar&&vr.kbar.level>0;
+  if(m3Volcano){
+    if(m3IsRedK&&cVR>=1000){m3State='VOLCANO_BUY';m3Mod=30;}
+    else if(!m3IsRedK&&cVR>=1000){m3State='VOLCANO_SELLOFF';m3Mult=0.4;
+      if(m3AtSupport&&rsi<=45){m3State='VOLCANO_WARNING';m3Mod=-10;m3Mult=1.0;}}
+    else{m3State='VOLCANO_WARNING';m3Mod=-10;}
+  }
+  if(m3AtSupport&&(m3State==='NORMAL'||m3State==='VOLCANO_WARNING')){
+    if(rsi<30&&cVR!==null&&cVR<=0.1){m3State='SNIPER_OVERSOLD';m3Mod=10;}
+    else if(rsi<=45){m3State='SNIPER_SUPPORT';m3Mod=5;}
+  }
+  if(m3State==='NORMAL'&&rsi>80){m3State='OVERBOUGHT_PENALTY';m3Mod=-15;}
+  const m3s=Math.max(0,Math.min(100,Math.round(m3BaseScore*m3Mult)+m3Mod));
+  const m3StateMap={'VOLCANO_BUY':'🔥 動能突破','VOLCANO_SELLOFF':'⚠️ 爆量崩盤','VOLCANO_WARNING':'⚡ 波動異常',
+    'SNIPER_DIVERGENCE':'🎯 底背離','SNIPER_OVERSOLD':'📉 量縮超跌','SNIPER_SUPPORT':'🛡️ 支撐防守',
+    'OVERBOUGHT_PENALTY':'🚨 高檔超買','NORMAL':'📊 常態追蹤'};
+  const m3StateLabel=m3StateMap[m3State]||'📊 常態追蹤';
+  // 確認信號
   const confirmMomentum=rsi<35;
-  const confirmChip=vrChipConfirm||(cVR!==null&&cVR<=0.1);
-  const confirmSupport=vrSupportConfirm;
+  const confirmChip=cVR!==null&&cVR<=0.1;
+  const confirmSupport=m3AtSupport;
   const tripleConfirm=[confirmMomentum,confirmChip,confirmSupport].filter(Boolean).length;
-  // align 升級為三維共振
   const align=tripleConfirm;
   // Kelly
   const w52l=+(s.week52_low)||(price*0.82);
@@ -1451,15 +1455,15 @@ function render(s, macro) {
       {t:`勝率 p=${(p*100).toFixed(0)}%  Rev成長 ${s.rev_growth||'N/A'}%  EPS成長 ${s.eps_growth||'N/A'}%`,b:p>=0.65?bd('高勝率','bg'):bd('中性','bb')},
       {t:`目標 $${target||'N/A'}（+${upPct.toFixed(0)}%）  ${s.consensus||'N/A'}  ${s.analyst_count||'N/A'} 位分析師`,b:bd('Yahoo即時','bb')},
     ]},
-    {num:'③',title:'技術籌碼（三維確認）',score:m3s,rows:[
-      {t:`動能層：RSI ${s.rsi||'N/A'}（${s.rsi_signal||'N/A'}）  MACD ${s.macd||'N/A'}`,b:confirmMomentum?bd('✓ 動能確認','bg'):rsi<45?bd('偏低','ba'):bd('未確認','br')},
-      {t:`籌碼層：VR ${vr?((vr.currentVR!=null)?vr.currentVR.toFixed(1):'N/A'):'N/A'}${vr&&vr.recentDot?' · '+({yellow:'🟡 賣壓耗盡',green:'🟢 賣壓極端'}[vr.recentDot.type]||''):''}`,b:confirmChip?bd('✓ 籌碼確認','bg'):vrScore>0?bd('部分','ba'):bd('無信號','br')},
-      {t:`支撐層：${vr&&vr.nearSupport?vr.nearSupport.tf+'線 $'+f2(vr.nearSupport.price)+'（距'+vr.nearSupportPct.toFixed(1)+'%）':'無VR支撐線'}${vr&&vr.kbar?' · K棒：'+vr.kbar.label:''}`,b:confirmSupport?bd('✓ 支撐確認','bg'):bd('未確認','br')},
-      {t:`三維共振 ${tripleConfirm}/3${tripleConfirm>=3?' 🎯 最強信號':tripleConfirm>=2?' ⚡ 進場確認':tripleConfirm>=1?' 👀 等待更多':''}  護城河 ${moat}  盈餘品質 ${s.eq||'N/A'}`,b:tripleConfirm>=3?bd('全確認','bg'):tripleConfirm>=2?bd('雙確認','ba'):bd('待確認','br')},
+    {num:'③',title:`雙引擎 v3.2（${m3StateLabel}）`,score:m3s,rows:[
+      {t:`基底分：${m3BaseScore}（RSI ${s.rsi||'N/A'} · MACD ${s.macd||'N/A'}）`,b:m3BaseScore>=60?bd('基底強','bg'):m3BaseScore>=30?bd('基底中','ba'):bd('基底弱','br')},
+      {t:`Engine B Volcano：VR ${vr?((cVR!=null)?cVR.toFixed(1):'N/A'):'N/A'}${vr&&vr.recentDot?' · '+({yellow:'🟡 賣壓耗盡',green:'🟢 賣壓極端'}[vr.recentDot.type]||''):''}`,b:m3Volcano?bd(m3State.startsWith('VOLCANO')?m3StateLabel:'觸發','ba'):bd('未觸發','bb')},
+      {t:`Engine A Sniper：${m3AtSupport?'✓ 支撐位確認':'✗ 未觸及支撐'}${vr&&vr.nearSupport?' · '+vr.nearSupport.tf+'線 $'+f2(vr.nearSupport.price):''}${vr&&vr.kbar?' · K棒：'+vr.kbar.label:''}`,b:m3AtSupport?bd('✓ 支撐確認','bg'):bd('未確認','br')},
+      {t:`狀態 ${m3StateLabel}  Mult=${m3Mult} Mod=${m3Mod>0?'+':''}${m3Mod}  護城河 ${moat}  品質 ${s.eq||'N/A'}`,b:m3s>=60?bd('強勢','bg'):m3s>=30?bd('中性','ba'):bd('弱勢','br')},
     ]},
     {num:'④',title:'凱利倉位',score:m4s,rows:[
       {t:`賠率 b=${b.toFixed(2)}x（上行 ${upPct.toFixed(0)}% ÷ 下行 ${dPct.toFixed(0)}%）`,b:b>=2?bd('佳','bg'):b>=1.5?bd('尚可','ba'):bd('不足','br')},
-      {t:`Full Kelly ${(fullK*100).toFixed(0)}%  × K=${dynK}  × 三維共振 ${tripleConfirm}/3 ×${alMul}`,b:bd('計算','bb')},
+      {t:`Full Kelly ${(fullK*100).toFixed(0)}%  × K=${dynK}  × 信號共振 ${tripleConfirm}/3 ×${alMul}`,b:bd('計算','bb')},
       {t:`建議最大倉位 ${(pos*100).toFixed(1)}%`,b:pos>=0.06?bd('可配置','bg'):pos>=0.02?bd('少量','ba'):bd('近零','br')},
       {t:`R:R=1:${rr.toFixed(2)}`,b:rr>=2?bd('優質','bg'):rr>=1.5?bd('可接受','ba'):bd('偏低','br')},
     ]},
@@ -1513,7 +1517,7 @@ function render(s, macro) {
     `毛利 ${gm}%  淨利 ${s.net_margin}%  FCF ${s.fcf}  ← Yahoo 即時`,
     `Rev成長 ${s.rev_growth}%  EPS成長 ${s.eps_growth}%  ← Yahoo 即時`,
     `分析師目標 $${target}（${s.analyst_count}位）  ${s.consensus}  ← Yahoo 即時`,
-    `RSI=${s.rsi}  MACD=${s.macd}  共振=${align}/3  ← 前端計算`,
+    `RSI=${s.rsi}  MACD=${s.macd}  M3狀態=${m3State}  Base=${m3BaseScore}  Mult=${m3Mult}  Mod=${m3Mod}  ← v3.2`,
     `護城河=${moat}  風險=${(s.risks||[]).length}項  ← 深度 AI 定性`,
     `p=${(p*100).toFixed(0)}%  b=${b.toFixed(2)}x  Kelly=${(pos*100).toFixed(1)}%`,
     `M1=${m1s}  M2=${m2s}  M3=${m3s}  M4=${m4s}  M5=${m5s}  總分=${total}`,
