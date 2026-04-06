@@ -1,18 +1,14 @@
-On branch main
-Your branch is ahead of 'origin/main' by 2 commits.
+﻿On branch main
+Your branch is ahead of 'origin/main' by 3 commits.
   (use "git push" to publish your local commits)
 
 Changes not staged for commit:
   (use "git add <file>..." to update what will be committed)
   (use "git restore <file>..." to discard changes in working directory)
-	modified:   _git_status.txt
+	modified:   _git_out.txt
 
 Untracked files:
   (use "git add <file>..." to include in what will be committed)
-	_git_out.txt
+	_gitout.txt
 
 no changes added to commit (use "git add" and/or "git commit -a")
-warning: in the working copy of '_git_out.txt', LF will be replaced by CRLF the next time Git touches it
-[main b14ade7]  refactor M3 v3.2
- 2 files changed, 14 insertions(+)
- create mode 100644 _git_out.txt
