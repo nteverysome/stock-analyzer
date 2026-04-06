@@ -132,6 +132,21 @@ a:hover{text-decoration:underline;}
 .vr-item label{color:#5f5e5a;cursor:pointer;font-weight:600;min-width:18px;}
 .vr-item select{padding:2px 4px;border:1px solid #d3d1c7;border-radius:5px;font-size:11px;background:#fff;}
 .vr-item input[type=number]{width:52px;padding:2px 4px;border:1px solid #d3d1c7;border-radius:5px;font-size:11px;text-align:center;}
+/* ── M3 Sort/Filter */
+.m3-group{grid-column:1/-1;padding:10px 12px;background:#fff;border:1px solid #e8e6df;border-radius:8px;}
+.m3-group-t{font-size:10px;font-weight:600;color:#888780;margin-bottom:8px;letter-spacing:.04em;}
+.m3-sort-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;}
+.m3-chip{display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border:1.5px solid #d3d1c7;border-radius:20px;font-size:11px;cursor:pointer;background:#f9f8f4;color:#5f5e5a;transition:all .15s;user-select:none;}
+.m3-chip:hover{border-color:#378ADD;color:#378ADD;}
+.m3-chip.active{border-color:#378ADD;background:#E6F1FB;color:#185FA5;font-weight:600;}
+.m3-chip input[type=radio],.m3-chip input[type=checkbox]{display:none;}
+.m3-state-row{display:flex;flex-wrap:wrap;gap:5px;}
+.m3-state-chip{display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border:1px solid #e8e6df;border-radius:14px;font-size:10px;cursor:pointer;background:#fff;color:#888780;transition:all .15s;user-select:none;}
+.m3-state-chip:hover{border-color:#639922;color:#639922;}
+.m3-state-chip.active{border-color:#639922;background:#EAF3DE;color:#3B6D11;font-weight:600;}
+.m3-state-chip input[type=checkbox]{display:none;}
+.m3-sub{font-size:10px;color:#888780;margin-top:4px;}
+.empty-msg{padding:20px;text-align:center;color:#888780;font-size:13px;background:#f9f8f4;border-radius:8px;margin:8px 0;}
 /* ── Section titles */
 .sec-t{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:#888780;margin-bottom:8px;}
 /* ── Misc */
@@ -333,6 +348,32 @@ a:hover{text-decoration:underline;}
       </div>
     </div>
     <p style="font-size:10px;color:#888780;margin-bottom:14px;">偏好激進：降低門檻 / 偏好保守：提高門檻 · VR ≤ 0.1 找底部、≥ 1000 找頂部</p>
+
+    <!-- M3 排序與篩選 -->
+    <p class="sec-t">📊 M3 雙引擎排序與篩選</p>
+    <div class="m3-group">
+      <div class="m3-group-t">排序依據（點選切換，可單選）</div>
+      <div class="m3-sort-row" id="m3-sort-row">
+        <label class="m3-chip active" onclick="setM3Sort('total')"><input type="radio" name="m3sort" value="total" checked>📊 總分</label>
+        <label class="m3-chip" onclick="setM3Sort('m3s')"><input type="radio" name="m3sort" value="m3s">🎯 M3 分數</label>
+        <label class="m3-chip" onclick="setM3Sort('m3BaseScore')"><input type="radio" name="m3sort" value="m3BaseScore">📐 M3 基底分</label>
+        <label class="m3-chip" onclick="setM3Sort('m1s')"><input type="radio" name="m3sort" value="m1s">🌍 M1 環境</label>
+        <label class="m3-chip" onclick="setM3Sort('m2s')"><input type="radio" name="m3sort" value="m2s">💰 M2 估值</label>
+        <label class="m3-chip" onclick="setM3Sort('m4s')"><input type="radio" name="m3sort" value="m4s">📈 M4 凱利</label>
+      </div>
+      <div class="m3-group-t" style="margin-top:6px;">M3 引擎狀態篩選（可多選，不勾 = 全部顯示）</div>
+      <div class="m3-state-row" id="m3-state-row">
+        <label class="m3-state-chip" onclick="toggleM3State(this)"><input type="checkbox" value="VOLCANO_BUY">🔥 動能突破</label>
+        <label class="m3-state-chip" onclick="toggleM3State(this)"><input type="checkbox" value="SNIPER_DIVERGENCE">🎯 底背離</label>
+        <label class="m3-state-chip" onclick="toggleM3State(this)"><input type="checkbox" value="SNIPER_OVERSOLD">📉 量縮超跌</label>
+        <label class="m3-state-chip" onclick="toggleM3State(this)"><input type="checkbox" value="SNIPER_SUPPORT">🛡️ 支撐防守</label>
+        <label class="m3-state-chip" onclick="toggleM3State(this)"><input type="checkbox" value="VOLCANO_WARNING">⚡ 波動異常</label>
+        <label class="m3-state-chip" onclick="toggleM3State(this)"><input type="checkbox" value="VOLCANO_SELLOFF">⚠️ 爆量崩盤</label>
+        <label class="m3-state-chip" onclick="toggleM3State(this)"><input type="checkbox" value="OVERBOUGHT_PENALTY">🚨 超買</label>
+        <label class="m3-state-chip" onclick="toggleM3State(this)"><input type="checkbox" value="NORMAL">📊 常態</label>
+      </div>
+      <div class="m3-sub">💡 勾選想看的引擎狀態，例如只看「動能突破」+「底背離」的機會。排序會即時套用到結果。</div>
+    </div>
 
     <!-- Start scan button -->
     <button class="btn btn-primary" id="scan-btn" onclick="startScan()" style="width:100%;margin-bottom:14px;">🔍 開始掃描</button>
@@ -540,6 +581,74 @@ function vrMatchFilter(vrValue, filter) {
 document.addEventListener('DOMContentLoaded', () => {
   ['d','w','m'].forEach(tf => toggleVR(tf));
 });
+
+// ══════════ M3 排序與篩選 ══════════
+let m3SortKey = 'total';       // 預設按總分排序
+let m3StateFilters = [];       // 空 = 全部顯示
+let lastScanResults = null;    // 快取掃描結果，用於即時重排
+let lastScanMacro = null;
+
+function setM3Sort(key) {
+  m3SortKey = key;
+  document.querySelectorAll('#m3-sort-row .m3-chip').forEach(c => {
+    c.classList.toggle('active', c.querySelector('input').value === key);
+  });
+  if (lastScanResults) rerenderResults();
+}
+function toggleM3State(el) {
+  const cb = el.querySelector('input');
+  cb.checked = !cb.checked;
+  el.classList.toggle('active', cb.checked);
+  m3StateFilters = [];
+  document.querySelectorAll('#m3-state-row input:checked').forEach(inp => m3StateFilters.push(inp.value));
+  if (lastScanResults) rerenderResults();
+}
+function getM3SortValue(sc) {
+  if (m3SortKey === 'total') return sc.total;
+  if (m3SortKey === 'm3s') return sc.m3s;
+  if (m3SortKey === 'm3BaseScore') return sc.m3BaseScore || 0;
+  if (m3SortKey === 'm1s') return sc.m1s;
+  if (m3SortKey === 'm2s') return sc.m2s;
+  if (m3SortKey === 'm4s') return sc.m4s;
+  return sc.total;
+}
+function m3StateMatch(sc) {
+  if (m3StateFilters.length === 0) return true;
+  return m3StateFilters.includes(sc.m3State || 'NORMAL');
+}
+function rerenderResults() {
+  if (!lastScanResults) return;
+  const { allScored, allWatch, minScore, macro, totalScanned, totalL2, totalL3, mktLabel } = lastScanResults;
+  const maxOpp = 20, maxWatch = 20;
+  // 篩選
+  const filteredScored = allScored.filter(r => m3StateMatch(r.score));
+  const filteredWatch = allWatch.filter(r => m3StateMatch(r.score));
+  // 排序
+  filteredScored.sort((a,b) => getM3SortValue(b.score) - getM3SortValue(a.score));
+  filteredWatch.sort((a,b) => getM3SortValue(b.score) - getM3SortValue(a.score));
+  const opportunities = filteredScored.slice(0, maxOpp);
+  const watchlist = filteredWatch.slice(0, maxWatch);
+  // 排序標籤
+  const sortLabels = {total:'總分',m3s:'M3分數',m3BaseScore:'M3基底分',m1s:'M1環境',m2s:'M2估值',m4s:'M4凱利'};
+  const sortLbl = sortLabels[m3SortKey]||'總分';
+  const filterLbl = m3StateFilters.length > 0 ? `　篩選：${m3StateFilters.length}種狀態` : '';
+  let html = `<p class="sec-t" style="margin-top:12px;">📊 掃描摘要 · ${mktLabel} · 排序：${sortLbl}${filterLbl} · 掃描 ${totalScanned} 支 · 顯示 ${opportunities.length + watchlist.length} 支</p>`;
+  if (opportunities.length > 0) {
+    html += `<p class="sec-t">🎯 進場機會（${sortLbl}排序${m3StateFilters.length?'＋狀態篩選':''}）</p>`;
+    opportunities.forEach(r => { html += renderOpportunityCard(r, macro); });
+  } else {
+    html += renderScenario4(totalScanned, filteredWatch[0] || null);
+  }
+  if (watchlist.length > 0) {
+    html += `<p class="sec-t" style="margin-top:12px;">👀 觀察清單</p><div class="card">`;
+    watchlist.forEach(r => { html += renderWatchlistRow(r); });
+    html += '</div>';
+  }
+  if (filteredScored.length === 0 && filteredWatch.length === 0 && m3StateFilters.length > 0) {
+    html += `<div class="empty-msg">沒有符合所選 M3 引擎狀態的結果，請嘗試勾選更多狀態。</div>`;
+  }
+  document.getElementById('scan-results').innerHTML = html;
+}
 
 // ══════════ CORS PROXY (same as index.html) ══════════
 async function proxyFetch(url) {
@@ -1346,12 +1455,6 @@ async function startScan() {
       totalScanned += us.wlCount; totalL2 += us.l2WithChart.length; totalL3 += us.l3Results.length;
     }
 
-    // 排序
-    allScored.sort((a,b) => b.score.total - a.score.total);
-    allWatch.sort((a,b) => b.score.total - a.score.total);
-    const opportunities = allScored.slice(0, maxOpp);
-    const watchlist = allWatch.slice(0, maxWatch);
-
     // 輸出
     updateLayer(4, 'pass', `完整評分完成`, `${allScored.length}支進場 + ${allWatch.length}支觀察`);
     document.getElementById('scan-fill').style.width = '100%';
@@ -1362,21 +1465,10 @@ async function startScan() {
     document.getElementById('scan-status').textContent = `${mktLabel}全市場掃描完成 ✓（${elapsed}s）— 使用 Neon DB`;
     results.classList.remove('hidden');
 
-    let html = `<p class="sec-t" style="margin-top:12px;">📊 掃描摘要 · ${mktLabel} · 環境 ${macro.regime} · 掃描 ${totalScanned} 支 · 初篩 ${totalL2} 支 · 技術面 ${totalL3} 支 · 進場 ${opportunities.length} 支</p>`;
-    if (opportunities.length > 0) {
-      html += `<p class="sec-t">🎯 進場機會（總分 ≥ ${minScore || 50}）</p>`;
-      opportunities.forEach(r => { html += renderOpportunityCard(r, macro); });
-    } else if (allScored.length > 0 || allWatch.length > 0) {
-      html += renderScenario4(totalScanned, allWatch[0] || null);
-    } else {
-      html += renderScenario4(totalScanned, null);
-    }
-    if (watchlist.length > 0) {
-      html += `<p class="sec-t" style="margin-top:12px;">👀 觀察清單（50–${(minScore||65)-1} 分）</p><div class="card">`;
-      watchlist.forEach(r => { html += renderWatchlistRow(r); });
-      html += '</div>';
-    }
-    results.innerHTML = html;
+    // 快取結果供 M3 排序/篩選即時重排
+    lastScanResults = { allScored, allWatch, minScore: minScore||50, macro, totalScanned, totalL2, totalL3, mktLabel };
+    lastScanMacro = macro;
+    rerenderResults();
     btn.disabled=false; btn.textContent='🔍 開始掃描'; stopBtn.style.display='none'; scanRunning=false;
     return;
   }
@@ -1476,38 +1568,21 @@ async function startScan() {
   updateLayer(4, 'pass', `完整評分完成`, `${scored.length}支進入決賽`);
   document.getElementById('scan-fill').style.width = '100%';
 
-  const maxOpp = currentScanMode === 'fullmarket' ? 10 : 5;
-  const maxWatch = currentScanMode === 'fullmarket' ? 20 : 10;
-  const opportunities = scored.filter(r => r.score.total >= minScore).slice(0, maxOpp);
-  const watchlist = [...scored.filter(r => r.score.total < minScore && r.score.total >= 50), ...l2Only.filter(r => r.score.total >= 50)].slice(0, maxWatch);
-
   // ── Render results
   clearInterval(timer);
   const elapsed = ((performance.now()-t0)/1000).toFixed(1);
   document.getElementById('scan-timer').textContent = elapsed+'s';
   const scanModeText = currentScanMode === 'fullmarket' ? '全市場掃描' : '觀察清單掃描';
   const marketText = currentScanMode === 'fullmarket' ? selectedMarkets.map(m=>m==='us'?'美股':'台股').join('+') : '';
+  const mktLabel2 = marketText || scanModeText;
   document.getElementById('scan-status').textContent = `${scanModeText}完成 ✓（${elapsed}s）`;
   results.classList.remove('hidden');
 
-  let html = `<p class="sec-t" style="margin-top:12px;">📊 ${scanModeText}摘要${marketText?' · '+marketText:''} · 環境 ${macro.regime} · 掃描 ${wl.length} 支 · 初篩通過 ${l2WithChart.length} 支 · 決賽 ${l3Results.length} 支 · 進場機會 ${opportunities.length} 支</p>`;
-
-  if (opportunities.length > 0) {
-    html += `<p class="sec-t">🎯 進場機會（總分 ≥ ${minScore}）</p>`;
-    opportunities.forEach(r => { html += renderOpportunityCard(r, macro); });
-  } else if (scored.length > 0 || l2Only.length > 0) {
-    html += renderScenario4(wl.length, scored[0] || l2Only[0]);
-  } else {
-    html += renderScenario4(wl.length, null);
-  }
-
-  if (watchlist.length > 0) {
-    html += `<p class="sec-t" style="margin-top:12px;">👀 觀察清單（總分 50–${minScore-1}）</p><div class="card">`;
-    watchlist.forEach(r => { html += renderWatchlistRow(r); });
-    html += '</div>';
-  }
-
-  results.innerHTML = html;
+  const allScoredWL = scored.filter(r => r.score.total >= minScore);
+  const allWatchWL = [...scored.filter(r => r.score.total < minScore && r.score.total >= 50), ...l2Only.filter(r => r.score.total >= 50)];
+  lastScanResults = { allScored: allScoredWL, allWatch: allWatchWL, minScore, macro, totalScanned: wl.length, totalL2: l2WithChart.length, totalL3: l3Results.length, mktLabel: mktLabel2 };
+  lastScanMacro = macro;
+  rerenderResults();
   btn.disabled = false; btn.textContent = '🔍 開始掃描'; stopBtn.style.display = 'none'; scanRunning = false;
 }
 
@@ -1549,7 +1624,10 @@ function renderOpportunityCard(r, macro) {
     if (vrData.atSupport) tags += `<span class="tag tg">VR支撐 $${vrData.nearSupport.price.toFixed(0)}</span>`;
     if (vrData.kbar && vrData.kbar.level>=2) tags += `<span class="tag tb">${vrData.kbar.label}</span>`;
   }
-  tags += `<span class="tag ${sc.tripleConfirm>=3?'tg':sc.tripleConfirm>=2?'to':'tr'}">信號共振 ${sc.tripleConfirm}/3</span>`;
+  const m3SL={'VOLCANO_BUY':'🔥突破','VOLCANO_SELLOFF':'⚠️崩盤','VOLCANO_WARNING':'⚡異常','SNIPER_DIVERGENCE':'🎯背離','SNIPER_OVERSOLD':'📉超跌','SNIPER_SUPPORT':'🛡️支撐','OVERBOUGHT_PENALTY':'🚨超買','NORMAL':'📊常態'};
+  const m3Tag=m3SL[sc.m3State]||'📊常態';
+  const m3Cls=['VOLCANO_BUY','SNIPER_DIVERGENCE','SNIPER_OVERSOLD'].includes(sc.m3State)?'tg':['VOLCANO_SELLOFF','OVERBOUGHT_PENALTY'].includes(sc.m3State)?'tr':'to';
+  tags += `<span class="tag ${m3Cls}">${m3Tag}</span>`;
   if (sc.pos > 0) tags += `<span class="tag tg">倉位 ${(sc.pos*100).toFixed(1)}%</span>`;
   else tags += `<span class="tag to">等待確認</span>`;
 
@@ -1601,10 +1679,12 @@ function renderWatchlistRow(r) {
   const isTW = r.ticker.endsWith('.TW') || r.ticker.endsWith('.TWO') || isTWS;
   const mktFlag = isTW ? '🇹🇼' : '🇺🇸';
   const tkDisplay = isTWS && r.dbData ? `${r.ticker} ${r.dbData.name}` : r.ticker;
+  const wlM3={'VOLCANO_BUY':'🔥','SNIPER_DIVERGENCE':'🎯','SNIPER_OVERSOLD':'📉','SNIPER_SUPPORT':'🛡️','VOLCANO_WARNING':'⚡','VOLCANO_SELLOFF':'⚠️','OVERBOUGHT_PENALTY':'🚨','NORMAL':''};
+  const wlM3Lbl=wlM3[sc.m3State]||'';
   return `<div class="wl-result">
     <div class="wl-dot" style="background:${col}"></div>
     <div class="wl-tk">${mktFlag} ${tkDisplay}</div>
-    <div class="wl-desc">${missing}</div>
+    <div class="wl-desc">${wlM3Lbl?wlM3Lbl+' ':''}${missing}</div>
     <div class="wl-sc" style="color:${col}">${sc.total}</div>
     <div class="wl-act" style="background:${sc.total>=55?'#FAEEDA':'#f5f4ef'};color:${sc.total>=55?'#854F0B':'#888780'}">${lbl}</div>
   </div>`;
