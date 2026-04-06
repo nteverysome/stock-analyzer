@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>M3 技術面分析 — Stock Analyzer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f4ef;color:#1a1a18;font-size:14px;}
+a{color:#378ADD;text-decoration:none;font-size:12px;}
+a:hover{text-decoration:underline;}
+.wrap{max-width:960px;margin:0 auto;padding:20px 16px;}
+
+/* Header */
+.hd{display:flex;align-items:baseline;gap:10px;margin-bottom:2px;}
+.hd h1{font-size:18px;font-weight:700;}
+.sub{font-size:11px;color:#888780;margin-bottom:14px;}
+
+/* Search */
+.search{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px;}
+.search input[type=text]{width:100px;padding:8px 12px;border:1px solid #d3d1c7;border-radius:8px;font-size:15px;font-weight:700;background:#fff;}
+.search input[type=date]{padding:7px 10px;border:1px solid #d3d1c7;border-radius:8px;font-size:11px;background:#fff;color:#5f5e5a;}
+.btn{padding:8px 18px;font-size:12px;font-weight:600;border:none;border-radius:8px;cursor:pointer;transition:background .15s;}
+.btn-dark{background:#1a1a18;color:#fff;}.btn-dark:hover{background:#333;}
+
+/* Error */
+.err{background:#FCEBEB;border:1px solid #f3b5b4;color:#A32D2D;padding:10px 14px;border-radius:8px;font-size:12px;margin-bottom:14px;display:none;}
+
+/* Card */
+.card{background:#fff;border:1px solid #e8e6df;border-radius:12px;padding:16px;margin-bottom:12px;}
+.card-t{font-size:12px;font-weight:700;color:#5f5e5a;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+
+/* ─── M3 Score Panel ─── */
+.m3{display:grid;grid-template-columns:130px 1fr;gap:16px;}
+@media(max-width:560px){.m3{grid-template-columns:1fr;}}
+.m3-left{text-align:center;}
+.m3-num{font-size:48px;font-weight:800;line-height:1;}
+.m3-lbl{font-size:10px;color:#888780;margin-top:2px;}
+.m3-sig{display:inline-block;font-size:11px;font-weight:700;padding:3px 12px;border-radius:12px;margin-top:6px;}
+.sig-buy{background:#EAF3DE;color:#3B6D11;}
+.sig-sell{background:#FCEBEB;color:#A32D2D;}
+.sig-hold{background:#FAEEDA;color:#854F0B;}
+.sig-na{background:#f0ede6;color:#888780;}
+
+/* Bars */
+.bars{display:flex;flex-direction:column;gap:8px;}
+.bar-row{display:flex;align-items:center;gap:8px;font-size:11px;}
+.bar-label{width:80px;text-align:right;color:#5f5e5a;flex-shrink:0;}
+.bar-track{flex:1;height:10px;background:#f0ede6;border-radius:5px;overflow:hidden;}
+.bar-fill{height:10px;border-radius:5px;transition:width .5s;}
+.bar-val{width:55px;font-weight:700;text-align:right;font-size:13px;}
+.bar-hint{font-size:10px;color:#888780;width:70px;}
+
+/* Tags */
+.tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:12px;}
+.tag{font-size:10px;padding:3px 10px;border-radius:10px;font-weight:600;}
+.tag-g{background:#EAF3DE;color:#3B6D11;}
+.tag-r{background:#FCEBEB;color:#A32D2D;}
+.tag-y{background:#FAEEDA;color:#854F0B;}
+.tag-b{background:#E6F1FB;color:#185FA5;}
+.tag-n{background:#f0ede6;color:#888780;}
+
+/* Narrative */
+.narr{background:#faf9f5;border:1px solid #e8e6df;border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.8;color:#3b3b39;margin-top:10px;}
+.narr b{color:#1a1a18;}
+
+/* Tabs */
+.tabs{display:flex;gap:0;border-bottom:2px solid #e8e6df;margin-bottom:14px;}
+.tab{padding:9px 18px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:none;color:#888780;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;}
+.tab:hover{color:#1a1a18;}
+.tab.active{color:#1a1a18;border-bottom-color:#378ADD;}
+.tab-body{display:none;}.tab-body.active{display:block;}
+
+/* Charts */
+.chart-wrap{position:relative;height:400px;}
+canvas{width:100%!important;}
+
+/* Stats */
+.stats-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:12px;}
+.st{background:#fff;border:1px solid #e8e6df;border-radius:10px;padding:12px;text-align:center;}
+.st-l{font-size:10px;color:#888780;margin-bottom:3px;}
+.st-v{font-size:22px;font-weight:800;line-height:1;}
+.green{color:#639922;}.red{color:#E24B4A;}.blue{color:#378ADD;}.gray{color:#888780;}
+
+/* Empty */
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:300px;color:#b8b6ae;font-size:12px;gap:4px;}
+.empty i{font-size:40px;font-style:normal;}
+/* Price summary */
+#priceSummary{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;}
+.ps-price{font-size:28px;font-weight:800;color:#1a1a18;line-height:1;}
+.ps-unit{font-size:12px;font-weight:400;color:#888780;}
+.ps-chg{font-size:13px;font-weight:700;}
+.ps-period{font-size:11px;color:#888780;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a href="/screener.html">← 返回全市場篩選</a>
+  <div class="hd"><h1>📊 M3 技術面分析</h1></div>
+  <div class="sub">五層漏斗模型 · Layer 3 技術面深度診斷 — RSI · MACD · KD · 均線趨勢</div>
+
+  <div class="search">
+    <input type="text" id="symbolInput" placeholder="代碼" value="2330">
+    <input type="date" id="startDate">
+    <input type="date" id="endDate">
+    <button class="btn btn-dark" onclick="doAnalysis()">🔍 開始分析</button>
+  </div>
+  <div class="err" id="errBox"></div>
+
+  <!-- M3 評分摘要（查詢後才顯示） -->
+  <div class="card" id="m3Card" style="display:none">
+    <div class="card-t">🎯 M3 技術面評分摘要</div>
+    <div class="m3">
+      <div class="m3-left">
+        <div class="m3-num" id="m3Num">—</div>
+        <div class="m3-lbl">M3 技術分</div>
+        <div class="m3-sig sig-na" id="m3Sig">等待分析</div>
+      </div>
+      <div>
+        <div class="bars" id="m3Bars"></div>
+        <div class="tags" id="m3Tags"></div>
+        <div class="narr" id="m3Narr"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 統計卡 -->
+  <div class="stats-row" id="statsRow" style="display:none"></div>
+
+  <!-- 分頁 -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('candle',this)">K 線圖</button>
+    <button class="tab" onclick="switchTab('indicators',this)">技術指標</button>
+    <button class="tab" onclick="switchTab('backtest',this)">回測統計</button>
+  </div>
+  <div class="tab-body active" id="tab-candle">
+    <div class="card">
+      <!-- Google Finance 風格價格摘要 -->
+      <div id="priceSummaryWrap" style="display:none;margin-bottom:12px;">
+        <div id="priceSummary"></div>
+      </div>
+      <div class="chart-wrap"><canvas id="candleChart"></canvas>
+        <div class="empty" id="emptyCandle"><i>📈</i>輸入股票代碼後按「開始分析」</div>
+      </div>
+      <!-- 均線圖例 -->
+      <div style="display:flex;gap:14px;margin-top:8px;font-size:10px;color:#888780;padding-left:4px;">
+        <span><span style="display:inline-block;width:20px;height:2px;background:#E24B4A;vertical-align:middle;margin-right:4px;"></span>收盤價</span>
+        <span><span style="display:inline-block;width:20px;height:1px;background:#378ADD;vertical-align:middle;margin-right:4px;border-top:2px dashed #378ADD;"></span>MA20</span>
+      </div>
+    </div>
+  </div>
+  <div class="tab-body" id="tab-indicators">
+    <div class="card"><div class="chart-wrap"><canvas id="indicatorsChart"></canvas>
+      <div class="empty" id="emptyInd"><i>📉</i>分析後顯示 RSI / MACD / KD</div>
+    </div></div>
+  </div>
+  <div class="tab-body" id="tab-backtest">
+    <div id="btStats"></div>
+    <div class="card"><div class="chart-wrap"><canvas id="backtestChart"></canvas>
+      <div class="empty" id="emptyBt"><i>🧪</i>分析後自動回測</div>
+    </div></div>
+  </div>
+</div>
+
+<script>
+let chartData=null, candleInst=null, indInst=null, btInst=null;
+
+// ─── M3 技術面評分（前端計算） ───
+function calcM3(c){
+  // c = 最後一根 candle
+  if(!c) return {total:0,rsi:0,macd:0,kd:0,ma:0,signal:'無資料',tags:[],narr:''};
+  let rsiScore=0,macdScore=0,kdScore=0,maScore=0;
+  const tags=[];
+
+  // RSI 評分 (0-25)
+  if(c.rsi!=null){
+    if(c.rsi<30){rsiScore=25;tags.push({t:'RSI 超賣 '+c.rsi.toFixed(0),c:'tag-g'});}
+    else if(c.rsi<40){rsiScore=20;tags.push({t:'RSI 偏低',c:'tag-g'});}
+    else if(c.rsi<60){rsiScore=12;tags.push({t:'RSI 中性',c:'tag-n'});}
+    else if(c.rsi<70){rsiScore=5;tags.push({t:'RSI 偏高',c:'tag-y'});}
+    else{rsiScore=0;tags.push({t:'RSI 超買 '+c.rsi.toFixed(0),c:'tag-r'});}
+  }
+  // MACD 評分 (0-25)
+  if(c.macdHistogram!=null){
+    if(c.macdHistogram>0 && c.macd>c.macdSignal){macdScore=25;tags.push({t:'MACD 金叉',c:'tag-g'});}
+    else if(c.macdHistogram>0){macdScore=18;tags.push({t:'MACD 正柱',c:'tag-b'});}
+    else if(c.macdHistogram<0 && c.macd<c.macdSignal){macdScore=0;tags.push({t:'MACD 死叉',c:'tag-r'});}
+    else{macdScore=8;tags.push({t:'MACD 負柱',c:'tag-y'});}
+  }
+  // KD 評分 (0-25)
+  if(c.kdFast!=null && c.kdSlow!=null){
+    if(c.kdFast<20){kdScore=25;tags.push({t:'KD 超賣',c:'tag-g'});}
+    else if(c.kdFast>c.kdSlow && c.kdFast<50){kdScore=20;tags.push({t:'KD 金叉',c:'tag-g'});}
+    else if(c.kdFast>80){kdScore=0;tags.push({t:'KD 超買',c:'tag-r'});}
+    else if(c.kdFast<c.kdSlow){kdScore=5;tags.push({t:'KD 死叉',c:'tag-r'});}
+    else{kdScore=12;tags.push({t:'KD 中性',c:'tag-n'});}
+  }
+  // 均線評分 (0-25)
+  if(c.ma5!=null && c.ma20!=null){
+    const above5=c.close>c.ma5, above20=c.close>c.ma20;
+    const ma5up=c.ma5>c.ma20;
+    if(above5&&above20&&ma5up){maScore=25;tags.push({t:'多頭排列',c:'tag-g'});}
+    else if(above20){maScore=18;tags.push({t:'站上 MA20',c:'tag-b'});}
+    else if(above5){maScore=10;tags.push({t:'站上 MA5',c:'tag-y'});}
+    else{maScore=0;tags.push({t:'空頭排列',c:'tag-r'});}
+  }
+  const total=rsiScore+macdScore+kdScore+maScore;
+  let signal,sigCls;
+  if(total>=70){signal='強力買進';sigCls='sig-buy';}
+  else if(total>=50){signal='偏多觀望';sigCls='sig-hold';}
+  else if(total>=30){signal='中性';sigCls='sig-na';}
+  else{signal='偏空警示';sigCls='sig-sell';}
+
+  // 白話敘述
+  const parts=[];
+  if(c.rsi!=null) parts.push(`RSI 為 <b>${c.rsi.toFixed(1)}</b>，${c.rsi<30?'處於超賣區，反彈機率高':c.rsi>70?'進入超買區，追高風險大':'中性區間'}`);
+  if(c.macdHistogram!=null) parts.push(`MACD 柱狀 ${c.macdHistogram>0?'<b>正值</b>，動能偏多':'<b>負值</b>，動能偏空'}`);
+  if(c.kdFast!=null) parts.push(`K 值 <b>${c.kdFast.toFixed(0)}</b>，D 值 <b>${c.kdSlow.toFixed(0)}</b>，${c.kdFast>c.kdSlow?'K>D 偏多':'K<D 偏空'}`);
+  const narr=parts.join('。')+'。';
+
+  return {total,rsi:rsiScore,macd:macdScore,kd:kdScore,ma:maScore,signal,sigCls,tags,narr};
+}
+
+function renderM3(m3){
+  document.getElementById('m3Card').style.display='';
+  document.getElementById('m3Num').textContent=m3.total;
+  document.getElementById('m3Num').style.color=m3.total>=70?'#639922':m3.total>=40?'#854F0B':'#E24B4A';
+  const sigEl=document.getElementById('m3Sig');
+  sigEl.textContent=m3.signal; sigEl.className='m3-sig '+m3.sigCls;
+
+  const barColor=v=>v>=20?'#639922':v>=12?'#DAA520':'#E24B4A';
+  const barHint=v=>v>=20?'強勢':v>=12?'中性':'弱勢';
+  const items=[
+    {lbl:'RSI 動能',val:m3.rsi,max:25},
+    {lbl:'MACD 趨勢',val:m3.macd,max:25},
+    {lbl:'KD 擺盪',val:m3.kd,max:25},
+    {lbl:'均線排列',val:m3.ma,max:25},
+  ];
+  document.getElementById('m3Bars').innerHTML=items.map(i=>`
+    <div class="bar-row">
+      <div class="bar-label">${i.lbl}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${i.val/i.max*100}%;background:${barColor(i.val)}"></div></div>
+      <div class="bar-val">${i.val}/${i.max}</div>
+      <div class="bar-hint">${barHint(i.val)}</div>
+    </div>`).join('');
+
+  document.getElementById('m3Tags').innerHTML=m3.tags.map(t=>`<span class="tag ${t.c}">${t.t}</span>`).join('');
+  document.getElementById('m3Narr').innerHTML=m3.narr;
+}
+
+// ─── API ───
+async function doAnalysis(){
+  const symbol=document.getElementById('symbolInput').value.trim();
+  if(!symbol) return showErr('請輸入股票代碼');
+  hideErr();
+  try{
+    const p=new URLSearchParams({symbol});
+    const sd=document.getElementById('startDate').value;
+    const ed=document.getElementById('endDate').value;
+    if(sd) p.append('start_date',sd);
+    if(ed) p.append('end_date',ed);
+    const res=await fetch('/api/chart-data?'+p);
+    const json=await res.json();
+    if(!json.success) return showErr(json.error||'查詢失敗');
+    chartData=json;
+    const last=chartData.candles[chartData.candles.length-1];
+    renderM3(calcM3(last));
+    renderStats(last);
+    drawCandle();
+    drawIndicators();
+    hideErr();
+  }catch(e){showErr(e.message);}
+}
+
+function renderStats(c){
+  if(!c) return;
+  const sr=document.getElementById('statsRow');
+  sr.style.display='grid';
+  const v=(x,d=2)=>x!=null?x.toFixed(d):'—';
+  sr.innerHTML=`
+    <div class="st"><div class="st-l">收盤價</div><div class="st-v">$${v(c.close)}</div></div>
+    <div class="st"><div class="st-l">RSI(14)</div><div class="st-v ${c.rsi<30?'green':c.rsi>70?'red':''}">${v(c.rsi,1)}</div></div>
+    <div class="st"><div class="st-l">MACD</div><div class="st-v ${c.macd>0?'green':'red'}">${v(c.macd,4)}</div></div>
+    <div class="st"><div class="st-l">K / D</div><div class="st-v">${v(c.kdFast,0)} / ${v(c.kdSlow,0)}</div></div>
+    <div class="st"><div class="st-l">MA5</div><div class="st-v blue">${v(c.ma5)}</div></div>
+    <div class="st"><div class="st-l">MA20</div><div class="st-v blue">${v(c.ma20)}</div></div>
+  `;
+}
+
+// ─── 資料清洗：移除異常值（中位數 ±60%以外） ───
+function cleanData(candles){
+  if(!candles.length) return candles;
+  const closes=candles.map(c=>c.close).filter(v=>v>0).sort((a,b)=>a-b);
+  const med=closes[Math.floor(closes.length/2)];
+  const lo=med*0.4, hi=med*2.5;
+  return candles.filter(c=>c.close>=lo&&c.close<=hi);
+}
+
+// ─── Charts ───
+function drawCandle(){
+  if(!chartData||!chartData.candles.length) return;
+  document.getElementById('emptyCandle').style.display='none';
+  const ctx=document.getElementById('candleChart').getContext('2d');
+  const d=cleanData(chartData.candles);   // ← 先清洗異常值
+  if(!d.length) return;
+  if(candleInst) candleInst.destroy();
+
+  // 漲跌判斷
+  const isUp=d[d.length-1].close >= d[0].close;
+  const lineColor=isUp?'#E24B4A':'#059669';
+  const gradTop=isUp?'rgba(226,75,74,0.18)':'rgba(5,150,105,0.18)';
+
+  // Y 軸範圍：只看 close，留 2% 空間
+  const closes=d.map(c=>c.close);
+  const minY=Math.min(...closes)*0.98;
+  const maxY=Math.max(...closes)*1.02;
+
+  // X 軸月份 label（只留 yyyy-MM）
+  const xLabels=d.map(c=>c.date);
+  const monthTick=(val,i)=>{
+    const s=xLabels[i];
+    if(!s) return '';
+    const mo=s.slice(0,7);
+    return(i===0||xLabels[i-1]?.slice(0,7)!==mo)?mo:'';
+  };
+
+  candleInst=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels:xLabels,
+      datasets:[
+        // ① 主線：收盤價
+        {label:'收盤價',
+         data:d.map(c=>c.close),
+         borderColor:lineColor,borderWidth:2,
+         pointRadius:0,pointHoverRadius:5,pointHoverBackgroundColor:lineColor,
+         tension:0.15,fill:'start',
+         backgroundColor:(ctx2)=>{
+           const ch=ctx2.chart,h=ch.chartArea?.height||400;
+           const g=ch.ctx.createLinearGradient(0,ch.chartArea?.top||0,0,(ch.chartArea?.top||0)+h);
+           g.addColorStop(0,gradTop);
+           g.addColorStop(1,'rgba(255,255,255,0)');
+           return g;
+         },
+        },
+        // ② MA20（虛線）
+        {label:'MA20',data:d.map(c=>c.ma20),
+         borderColor:'rgba(55,138,221,0.7)',borderWidth:1.2,
+         pointRadius:0,tension:0.15,fill:false,borderDash:[5,3],
+        },
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      layout:{padding:{left:0,right:0,top:8,bottom:0}},
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:'rgba(26,26,24,0.85)',
+          titleFont:{size:11},bodyFont:{size:12},
+          callbacks:{
+            title:items=>xLabels[items[0].dataIndex]||'',
+            label:item=>{
+              if(item.datasetIndex!==0) return` MA20: ${item.parsed.y?.toFixed(0)||'—'}`;
+              const c=d[item.dataIndex];
+              return[` 收盤: ${c.close}`,` 開盤: ${c.open}`,` 最高: ${c.high}`,` 最低: ${c.low}`];
+            }
+          }
+        },
+        // 十字線游標
+        crosshair:{line:{color:'#aaa8a2',width:1}}
+      },
+      scales:{
+        x:{
+          ticks:{maxTicksLimit:8,font:{size:10},color:'#888780',
+            autoSkip:true,maxRotation:0,callback:monthTick},
+          grid:{display:false},border:{display:false},
+        },
+        y:{
+          min:minY,max:maxY,position:'right',
+          ticks:{font:{size:10},color:'#888780',maxTicksLimit:6,
+            callback:v=>(v>=1000?(v/1).toLocaleString('zh-TW'):v)},
+          grid:{color:'rgba(232,230,223,0.8)',drawBorder:false},
+          border:{display:false},
+        }
+      }
+    }
+  });
+
+  // 顯示漲跌摘要
+  const chg=d[d.length-1].close-d[0].close;
+  const pct=(chg/d[0].close*100).toFixed(2);
+  const sign=chg>=0?'+':'';
+  const sym=document.getElementById('symbolInput').value.trim();
+  document.getElementById('priceSummary').innerHTML=
+    `<span class="ps-price">${d[d.length-1].close.toLocaleString()} <span class="ps-unit">TWD</span></span>
+     <span class="ps-chg" style="color:${isUp?'#E24B4A':'#059669'}">${sign}${chg.toFixed(0)} (${sign}${pct}%)</span>
+     <span class="ps-period">過去 ${d.length} 個交易日</span>`;
+  document.getElementById('priceSummaryWrap').style.display='block';
+}
+
+function drawIndicators(){
+  if(!chartData||!chartData.candles.length) return;
+  document.getElementById('emptyInd').style.display='none';
+  const ctx=document.getElementById('indicatorsChart').getContext('2d');
+  const d=chartData.candles;
+  if(indInst) indInst.destroy();
+  indInst=new Chart(ctx,{
+    type:'line',
+    data:{labels:d.map(c=>c.date),datasets:[
+      {label:'RSI(14)',data:d.map(c=>c.rsi),borderColor:'#E24B4A',borderWidth:1.5,pointRadius:0,tension:.3,fill:false,yAxisID:'y'},
+      {label:'K',data:d.map(c=>c.kdFast),borderColor:'#378ADD',borderWidth:1.5,pointRadius:0,tension:.3,fill:false,yAxisID:'y'},
+      {label:'D',data:d.map(c=>c.kdSlow),borderColor:'#DAA520',borderWidth:1.5,pointRadius:0,tension:.3,fill:false,yAxisID:'y'},
+      {label:'MACD',data:d.map(c=>c.macd),borderColor:'#639922',borderWidth:1.5,pointRadius:0,tension:.3,fill:false,yAxisID:'y1'},
+      {label:'Signal',data:d.map(c=>c.macdSignal),borderColor:'#888780',borderWidth:1,pointRadius:0,tension:.3,fill:false,yAxisID:'y1',borderDash:[4,2]},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{title:{display:true,text:'技術指標總覽',font:{size:13}}},
+      scales:{
+        y:{position:'left',title:{display:true,text:'RSI / KD'},min:0,max:100},
+        y1:{position:'right',title:{display:true,text:'MACD'},grid:{drawOnChartArea:false}},
+      },
+    }
+  });
+}
+
+// ─── Tab 切換 ───
+function switchTab(id,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-body').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-'+id).classList.add('active');
+}
+
+function showErr(m){const e=document.getElementById('errBox');e.textContent=m;e.style.display='block';}
+function hideErr(){document.getElementById('errBox').style.display='none';}
+
+// ─── 初始化 ───
+window.onload=()=>{
+  const e=new Date(), s=new Date();
+  s.setMonth(s.getMonth()-6);
+  document.getElementById('endDate').value=e.toISOString().split('T')[0];
+  document.getElementById('startDate').value=s.toISOString().split('T')[0];
+};
+</script>
+</body>
+</html>
