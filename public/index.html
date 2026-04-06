@@ -1471,7 +1471,7 @@ function render(s, macro) {
     ]},
     {num:'④',title:'凱利倉位',score:m4s,rows:[
       {t:`賠率 b=${b.toFixed(2)}x（上行 ${upPct.toFixed(0)}% ÷ 下行 ${dPct.toFixed(0)}%）`,b:b>=2?bd('佳','bg'):b>=1.5?bd('尚可','ba'):bd('不足','br')},
-      {t:`Full Kelly ${(fullK*100).toFixed(0)}%  × K=${dynK}  × 信號共振 ${tripleConfirm}/3 ×${alMul}`,b:bd('計算','bb')},
+      {t:`Full Kelly ${(fullK*100).toFixed(0)}%  × 環境係數 ${dynK}  × 引擎信號 ×${alMul}（${m3StateLabel}）`,b:bd('計算','bb')},
       {t:`建議最大倉位 ${(pos*100).toFixed(1)}%`,b:pos>=0.06?bd('可配置','bg'):pos>=0.02?bd('少量','ba'):bd('近零','br')},
       {t:`R:R=1:${rr.toFixed(2)}`,b:rr>=2?bd('優質','bg'):rr>=1.5?bd('可接受','ba'):bd('偏低','br')},
     ]},
@@ -1512,7 +1512,10 @@ function render(s, macro) {
   const ws=[];
   (s.risks||[]).forEach(r=>ws.push({bg:'#FCEBEB',c:'#A32D2D',t:'⚠ 風險：'+r}));
   (s.catalysts||[]).forEach(c=>ws.push({bg:'#E6F1FB',c:'#185FA5',t:'◎ 催化劑：'+c}));
-  if(align<2) ws.push({bg:'#FCEBEB',c:'#A32D2D',t:'⚠ 技術框架僅'+align+'/3 對齊，建議等待週線確認'});
+  if(m3State==='NORMAL'&&m3s<40) ws.push({bg:'#FCEBEB',c:'#A32D2D',t:'⚠ 技術面基底分偏低（'+m3BaseScore+'），尚無引擎觸發買入信號'});
+  if(m3State==='VOLCANO_SELLOFF') ws.push({bg:'#FCEBEB',c:'#A32D2D',t:'⚠ 爆量崩盤狀態，嚴禁買入，持有多單立即停損'});
+  if(m3State==='OVERBOUGHT_PENALTY') ws.push({bg:'#FCEBEB',c:'#A32D2D',t:'⚠ RSI 超買（'+rsi.toFixed(0)+'），追高風險極大，建議減碼'});
+  if(m3State==='VOLCANO_WARNING') ws.push({bg:'#FAEEDA',c:'#854F0B',t:'⚡ 波動率異常但方向不明，建議觀望等待明確方向'});
   if(rr>0&&rr<1.5) ws.push({bg:'#FAEEDA',c:'#854F0B',t:'◎ R:R=1:'+rr.toFixed(1)+' 低於建議門檻 1:2'});
   if(regime==='Stagflation') ws.push({bg:'#FAEEDA',c:'#854F0B',t:'◎ Stagflation：PEG 容忍度已乘以 0.7'});
   if(s.beta&&s.beta>1.5) ws.push({bg:'#FAEEDA',c:'#854F0B',t:'◎ Beta='+s.beta+'，波動性高，凱利倉位建議再打七折'});
