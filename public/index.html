@@ -1340,10 +1340,18 @@ function render(s, macro) {
   }
   if(m3State==='NORMAL'&&rsi>80){m3State='OVERBOUGHT_PENALTY';m3Mod=-15;}
   const m3s=Math.max(0,Math.min(100,Math.round(m3BaseScore*m3Mult)+m3Mod));
-  const m3StateMap={'VOLCANO_BUY':'🔥 動能突破','VOLCANO_SELLOFF':'⚠️ 爆量崩盤','VOLCANO_WARNING':'⚡ 波動異常',
-    'SNIPER_DIVERGENCE':'🎯 底背離','SNIPER_OVERSOLD':'📉 量縮超跌','SNIPER_SUPPORT':'🛡️ 支撐防守',
-    'OVERBOUGHT_PENALTY':'🚨 高檔超買','NORMAL':'📊 常態追蹤'};
-  const m3StateLabel=m3StateMap[m3State]||'📊 常態追蹤';
+  const m3StateMap={
+    'VOLCANO_BUY':    {lbl:'🔥 動能突破',desc:'爆量紅K突破均線，多方強勢進攻',act:'強烈買進'},
+    'VOLCANO_SELLOFF':{lbl:'⚠️ 爆量崩盤',desc:'爆量黑K跌破均線，空方主導',act:'強制避開'},
+    'VOLCANO_WARNING':{lbl:'⚡ 波動異常',desc:'量能劇烈但方向不明，觀望為主',act:'暫勿動作'},
+    'SNIPER_DIVERGENCE':{lbl:'🎯 底背離',desc:'股價破底但 RSI 不破底，反轉訊號浮現',act:'準備建倉'},
+    'SNIPER_OVERSOLD':{lbl:'📉 量縮超跌',desc:'RSI 超賣 + 成交量萎縮，賣壓接近枯竭',act:'試單建倉'},
+    'SNIPER_SUPPORT':{lbl:'🛡️ 支撐防守',desc:'價格來到關鍵支撐位附近',act:'持股續抱'},
+    'OVERBOUGHT_PENALTY':{lbl:'🚨 高檔超買',desc:'RSI 超過 80，追高風險極大',act:'減碼停利'},
+    'NORMAL':{lbl:'📊 常態追蹤',desc:'無極端事件，依基底分數判斷',act:m3s>=70?'偏多操作':m3s>=40?'維持觀望':'偏空謹慎'},
+  };
+  const m3Info=m3StateMap[m3State]||m3StateMap['NORMAL'];
+  const m3StateLabel=m3Info.lbl;
   // 確認信號
   const confirmMomentum=rsi<35;
   const confirmChip=cVR!==null&&cVR<=0.1;
@@ -1455,11 +1463,11 @@ function render(s, macro) {
       {t:`勝率 p=${(p*100).toFixed(0)}%  Rev成長 ${s.rev_growth||'N/A'}%  EPS成長 ${s.eps_growth||'N/A'}%`,b:p>=0.65?bd('高勝率','bg'):bd('中性','bb')},
       {t:`目標 $${target||'N/A'}（+${upPct.toFixed(0)}%）  ${s.consensus||'N/A'}  ${s.analyst_count||'N/A'} 位分析師`,b:bd('Yahoo即時','bb')},
     ]},
-    {num:'③',title:`雙引擎 v3.2（${m3StateLabel}）`,score:m3s,rows:[
-      {t:`基底分：${m3BaseScore}（RSI ${s.rsi||'N/A'} · MACD ${s.macd||'N/A'}）`,b:m3BaseScore>=60?bd('基底強','bg'):m3BaseScore>=30?bd('基底中','ba'):bd('基底弱','br')},
-      {t:`Engine B Volcano：VR ${vr?((cVR!=null)?cVR.toFixed(1):'N/A'):'N/A'}${vr&&vr.recentDot?' · '+({yellow:'🟡 賣壓耗盡',green:'🟢 賣壓極端'}[vr.recentDot.type]||''):''}`,b:m3Volcano?bd(m3State.startsWith('VOLCANO')?m3StateLabel:'觸發','ba'):bd('未觸發','bb')},
-      {t:`Engine A Sniper：${m3AtSupport?'✓ 支撐位確認':'✗ 未觸及支撐'}${vr&&vr.nearSupport?' · '+vr.nearSupport.tf+'線 $'+f2(vr.nearSupport.price):''}${vr&&vr.kbar?' · K棒：'+vr.kbar.label:''}`,b:m3AtSupport?bd('✓ 支撐確認','bg'):bd('未確認','br')},
-      {t:`狀態 ${m3StateLabel}  Mult=${m3Mult} Mod=${m3Mod>0?'+':''}${m3Mod}  護城河 ${moat}  品質 ${s.eq||'N/A'}`,b:m3s>=60?bd('強勢','bg'):m3s>=30?bd('中性','ba'):bd('弱勢','br')},
+    {num:'③',title:`技術面 v3.2 — ${m3StateLabel}`,score:m3s,rows:[
+      {t:`技術體質：RSI ${s.rsi||'N/A'}（${rsi<30?'超賣，反彈機率高':rsi<40?'偏弱，接近超賣':rsi>80?'嚴重超買':rsi>70?'偏熱，追高危險':'中性區間'}）· MACD ${s.macd||'N/A'} → 基底分 ${m3BaseScore}`,b:m3BaseScore>=60?bd('體質佳','bg'):m3BaseScore>=30?bd('體質普通','ba'):bd('體質差','br')},
+      {t:`波動率引擎：${m3Volcano?'⚡ VR '+cVR.toFixed(0)+' 異常放大'+(m3IsRedK?'，紅K多方進攻':'，黑K空方壓制'):'量能正常，無極端波動'}${vr&&vr.recentDot?' · '+({yellow:'🟡 賣壓快耗盡',green:'🟢 賣壓已極端'}[vr.recentDot.type]||''):''}`,b:m3Volcano?(m3State==='VOLCANO_BUY'?bd('多方突破','bg'):m3State==='VOLCANO_SELLOFF'?bd('空方崩盤','br'):bd('方向不明','ba')):bd('平靜','bb')},
+      {t:`抓底引擎：${m3AtSupport?'✅ 股價已來到支撐位'+(vr&&vr.nearSupport?' $'+f2(vr.nearSupport.price)+'（'+vr.nearSupport.tf+'線）':''):'❌ 尚未觸及任何支撐位'}${vr&&vr.kbar?' · K棒型態：'+vr.kbar.label:''}`,b:m3AtSupport?(rsi<35?bd('可抓底','bg'):bd('有支撐','ba')):bd('無支撐','br')},
+      {t:`結論：${m3Info.desc}　→　建議動作：${m3Info.act}`,b:m3s>=60?bd(m3Info.act,'bg'):m3s>=30?bd(m3Info.act,'ba'):bd(m3Info.act,'br')},
     ]},
     {num:'④',title:'凱利倉位',score:m4s,rows:[
       {t:`賠率 b=${b.toFixed(2)}x（上行 ${upPct.toFixed(0)}% ÷ 下行 ${dPct.toFixed(0)}%）`,b:b>=2?bd('佳','bg'):b>=1.5?bd('尚可','ba'):bd('不足','br')},
