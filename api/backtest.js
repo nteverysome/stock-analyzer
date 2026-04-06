@@ -100,7 +100,7 @@ export default async function handler(req, res) {
 
       for (let i = 0; i < data.length; i++) {
         const row = data[i];
-        const score = computeDailyScore(row);
+        const score = computeDailyScore(data, i);
         const isBuySignal = score >= 65;
         let dayReturn = 0;
 
@@ -149,37 +149,75 @@ export default async function handler(req, res) {
   }
 }
 
-function computeDailyScore(row) {
-  // 簡化評分邏輯（5 個指標）
-  let score = 0;
-
-  // 1. RSI (0-20 分)
-  const rsi = row.rsi ? parseFloat(row.rsi) : 50;
-  if (rsi < 30) score += 15;
-  else if (rsi < 50) score += 10;
-  else if (rsi < 70) score += 5;
-
-  // 2. KD (0-20 分)
-  const kd = row.kd_fast ? parseFloat(row.kd_fast) : 50;
-  if (kd < 30) score += 15;
-  else if (kd < 50) score += 10;
-  else if (kd < 70) score += 5;
-
-  // 3. MACD (0-20 分)
-  const macd = row.macd ? parseFloat(row.macd) : 0;
-  const macdSignal = row.macd_signal ? parseFloat(row.macd_signal) : 0;
-  if (macd > macdSignal) score += Math.min(15, macd * 2);
-  else score += Math.max(0, 10 + macd);
-
-  // 4. 價格位置 (0-20 分)
-  const ma20 = row.ma20 ? parseFloat(row.ma20) : row.close;
-  const ma60 = row.ma60 ? parseFloat(row.ma60) : row.close;
+// M3 雙引擎動態評分 v3.2 — 回測版本
+function computeDailyScore(data, idx) {
+  const row = data[idx];
+  const rsi = row.rsi ? parseFloat(row.rsi) : null;
   const close = parseFloat(row.close);
-  if (close > ma20 && ma20 > ma60) score += 15;
-  else if (close > ma60) score += 10;
+  const open = row.open ? parseFloat(row.open) : close;
+  const ma20 = row.ma20 ? parseFloat(row.ma20) : null;
+  const ma60 = row.ma60 ? parseFloat(row.ma60) : null;
+  const macd = row.macd ? parseFloat(row.macd) : null;
+  const macdSig = row.macd_signal ? parseFloat(row.macd_signal) : null;
 
-  // 5. 波動性 (0-20 分)
-  score += Math.min(20, 10);
+  // 第一階段：基底計分
+  let base_max = 0, base_raw = 0;
+  base_max += 20;
+  if (rsi != null) {
+    if (rsi < 20) base_raw += 20;
+    else if (rsi < 30) base_raw += 15;
+    else if (rsi < 40) base_raw += 8;
+  }
+  if (macd != null && macdSig != null) {
+    base_max += 20;
+    const hist = macd - macdSig;
+    const prevRow = idx > 0 ? data[idx - 1] : null;
+    const prevHist = prevRow && prevRow.macd && prevRow.macd_signal
+      ? parseFloat(prevRow.macd) - parseFloat(prevRow.macd_signal) : null;
+    if (hist > 0 && (prevHist == null || prevHist <= 0)) base_raw += 20;
+    else if (hist < 0 && prevHist != null && hist > prevHist) base_raw += 10;
+    else if (hist > 0) base_raw += 20;
+  }
+  if (ma20 != null) {
+    base_max += 15;
+    if (ma60 && ma20 > ma60 && close > ma20) base_raw += 15;
+    else if (close > ma20) base_raw += 7;
+  }
+  const baseScore = base_max > 0 ? Math.round((base_raw / base_max) * 100) : 50;
 
-  return Math.min(100, score);
+  // 下跌速率
+  let velocityMod = 0;
+  if (rsi != null && rsi < 40 && idx >= 5) {
+    const prevRsi = data[idx - 5].rsi ? parseFloat(data[idx - 5].rsi) : null;
+    if (prevRsi != null) {
+      const v = (prevRsi - rsi) / 5;
+      if (v >= 4) velocityMod = 8;
+      else if (v >= 2) velocityMod = 3;
+      else if (v > 0) velocityMod = -5;
+    }
+  }
+
+  // 第二階段：狀態仲裁
+  let state = 'NORMAL', modifier = 0, multiplier = 1.0;
+  const isRedK = close > open;
+  let isAtSupport = false;
+  if (ma60 && Math.abs(close - ma60) / ma60 < 0.02) isAtSupport = true;
+  if (ma20 && Math.abs(close - ma20) / ma20 < 0.02 && close < ma20) isAtSupport = true;
+  const bigMove = row.prev_close ? Math.abs((close - parseFloat(row.prev_close)) / parseFloat(row.prev_close) * 100) > 3 : false;
+
+  if (bigMove) {
+    const chg = row.prev_close ? (close - parseFloat(row.prev_close)) / parseFloat(row.prev_close) * 100 : 0;
+    if (isRedK && chg > 4 && ma20 && close > ma20) { state = 'VOLCANO_BUY'; modifier = 30; }
+    else if (!isRedK && chg < -4 && ma20 && close < ma20) { state = 'VOLCANO_SELLOFF'; multiplier = 0.4; }
+  }
+  if (isAtSupport && (state === 'NORMAL' || state === 'VOLCANO_WARNING')) {
+    if (rsi != null && rsi < 30) { state = 'SNIPER_OVERSOLD'; modifier = 10; }
+    else if (rsi != null && rsi <= 45) { state = 'SNIPER_SUPPORT'; modifier = 5; }
+  }
+  if (state === 'NORMAL' && rsi != null && rsi > 80) { state = 'OVERBOUGHT_PENALTY'; modifier = -15; }
+
+  const sniperStates = ['SNIPER_DIVERGENCE', 'SNIPER_OVERSOLD', 'SNIPER_SUPPORT'];
+  const effV = sniperStates.includes(state) ? velocityMod : 0;
+  const rawFinal = Math.round(baseScore * multiplier) + modifier + effV;
+  return Math.max(0, Math.min(100, rawFinal));
 }

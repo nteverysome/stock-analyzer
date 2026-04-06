@@ -97,8 +97,8 @@ canvas{width:100%!important;}
 <body>
 <div class="wrap">
   <a href="/screener.html">← 返回全市場篩選</a>
-  <div class="hd"><h1>📊 M3 技術面分析</h1></div>
-  <div class="sub">五層漏斗模型 · Layer 3 技術面深度診斷 — RSI · MACD · KD · 均線趨勢</div>
+  <div class="hd"><h1>📊 M3 雙引擎動態評分 v3.2</h1></div>
+  <div class="sub">Base × Multiplier + Modifier 架構 · Sniper 抓底 + Volcano 波動率雙引擎 · 下跌速率修正</div>
 
   <div class="search">
     <input type="text" id="symbolInput" placeholder="代碼" value="2330">
@@ -108,14 +108,15 @@ canvas{width:100%!important;}
   </div>
   <div class="err" id="errBox"></div>
 
-  <!-- M3 評分摘要（查詢後才顯示） -->
+  <!-- M3 v3.2 評分摘要（查詢後才顯示） -->
   <div class="card" id="m3Card" style="display:none">
-    <div class="card-t">🎯 M3 技術面評分摘要</div>
+    <div class="card-t">🎯 M3 雙引擎動態評分 v3.2</div>
     <div class="m3">
       <div class="m3-left">
         <div class="m3-num" id="m3Num">—</div>
-        <div class="m3-lbl">M3 技術分</div>
+        <div class="m3-lbl">最終分數</div>
         <div class="m3-sig sig-na" id="m3Sig">等待分析</div>
+        <div id="m3State" style="font-size:11px;margin-top:4px;color:#888"></div>
       </div>
       <div>
         <div class="bars" id="m3Bars"></div>
@@ -166,60 +167,143 @@ canvas{width:100%!important;}
 <script>
 let chartData=null, candleInst=null, indInst=null, btInst=null;
 
-// ─── M3 技術面評分（前端計算） ───
-function calcM3(c){
-  // c = 最後一根 candle
-  if(!c) return {total:0,rsi:0,macd:0,kd:0,ma:0,signal:'無資料',tags:[],narr:''};
-  let rsiScore=0,macdScore=0,kdScore=0,maScore=0;
-  const tags=[];
+// ─── M3 雙引擎動態評分系統 v3.2 ───
+// Base × Multiplier + Modifier + Velocity_Mod 架構
+function calcM3(candles, idx){
+  if(idx==null) idx=candles.length-1;
+  const c=candles[idx];
+  if(!c) return {total:0,baseScore:0,state:'NORMAL',modifier:0,multiplier:1,velocityMod:0,signal:'無資料',sigCls:'sig-na',tags:[],narr:'',stateLabel:'',isLowConfidence:false};
+  const rsi=c.rsi, tags=[];
 
-  // RSI 評分 (0-25)
-  if(c.rsi!=null){
-    if(c.rsi<30){rsiScore=25;tags.push({t:'RSI 超賣 '+c.rsi.toFixed(0),c:'tag-g'});}
-    else if(c.rsi<40){rsiScore=20;tags.push({t:'RSI 偏低',c:'tag-g'});}
-    else if(c.rsi<60){rsiScore=12;tags.push({t:'RSI 中性',c:'tag-n'});}
-    else if(c.rsi<70){rsiScore=5;tags.push({t:'RSI 偏高',c:'tag-y'});}
-    else{rsiScore=0;tags.push({t:'RSI 超買 '+c.rsi.toFixed(0),c:'tag-r'});}
+  // ═══ 第一階段：基底計分 ═══
+  let base_max=0, base_raw=0;
+  // 1.1 RSI (必備, 權重20)
+  base_max+=20;
+  if(rsi!=null){
+    if(rsi<20){base_raw+=20;tags.push({t:'RSI 極度超賣 '+rsi.toFixed(0),c:'tag-g'});}
+    else if(rsi<30){base_raw+=15;tags.push({t:'RSI 超賣 '+rsi.toFixed(0),c:'tag-g'});}
+    else if(rsi<40){base_raw+=8;tags.push({t:'RSI 偏弱 '+rsi.toFixed(0),c:'tag-y'});}
+    else{tags.push({t:'RSI '+rsi.toFixed(0)+' 中性以上',c:'tag-n'});}
   }
-  // MACD 評分 (0-25)
+  // 1.2 MACD (容許缺失)
+  let macdState=null;
   if(c.macdHistogram!=null){
-    if(c.macdHistogram>0 && c.macd>c.macdSignal){macdScore=25;tags.push({t:'MACD 金叉',c:'tag-g'});}
-    else if(c.macdHistogram>0){macdScore=18;tags.push({t:'MACD 正柱',c:'tag-b'});}
-    else if(c.macdHistogram<0 && c.macd<c.macdSignal){macdScore=0;tags.push({t:'MACD 死叉',c:'tag-r'});}
-    else{macdScore=8;tags.push({t:'MACD 負柱',c:'tag-y'});}
+    base_max+=20;
+    const prev=idx>0?candles[idx-1]:null;
+    const prevH=prev?prev.macdHistogram:null;
+    if(c.macdHistogram>0&&(prevH==null||prevH<=0)){macdState='轉正';base_raw+=20;tags.push({t:'MACD 轉正',c:'tag-g'});}
+    else if(c.macdHistogram<0&&prevH!=null&&c.macdHistogram>prevH){macdState='紅柱縮短';base_raw+=10;tags.push({t:'MACD 空方衰竭',c:'tag-b'});}
+    else if(c.macdHistogram<0){macdState='轉負';tags.push({t:'MACD 轉負',c:'tag-r'});}
+    else{macdState='轉正';base_raw+=20;tags.push({t:'MACD 正柱',c:'tag-g'});}
   }
-  // KD 評分 (0-25)
-  if(c.kdFast!=null && c.kdSlow!=null){
-    if(c.kdFast<20){kdScore=25;tags.push({t:'KD 超賣',c:'tag-g'});}
-    else if(c.kdFast>c.kdSlow && c.kdFast<50){kdScore=20;tags.push({t:'KD 金叉',c:'tag-g'});}
-    else if(c.kdFast>80){kdScore=0;tags.push({t:'KD 超買',c:'tag-r'});}
-    else if(c.kdFast<c.kdSlow){kdScore=5;tags.push({t:'KD 死叉',c:'tag-r'});}
-    else{kdScore=12;tags.push({t:'KD 中性',c:'tag-n'});}
+  // 1.3 MA 均線 (容許缺失)
+  let maState=null;
+  if(c.ma20!=null){
+    base_max+=15;
+    const maAligned=c.ma5&&c.ma10&&c.ma20&&c.ma5>c.ma10&&c.ma10>c.ma20;
+    if(maAligned){maState='多頭排列';base_raw+=15;tags.push({t:'多頭排列',c:'tag-g'});}
+    else if(c.close>c.ma20){maState='站上月線';base_raw+=7;tags.push({t:'站上月線',c:'tag-b'});}
+    else{maState='跌破月線';tags.push({t:'跌破月線',c:'tag-r'});}
   }
-  // 均線評分 (0-25)
-  if(c.ma5!=null && c.ma20!=null){
-    const above5=c.close>c.ma5, above20=c.close>c.ma20;
-    const ma5up=c.ma5>c.ma20;
-    if(above5&&above20&&ma5up){maScore=25;tags.push({t:'多頭排列',c:'tag-g'});}
-    else if(above20){maScore=18;tags.push({t:'站上 MA20',c:'tag-b'});}
-    else if(above5){maScore=10;tags.push({t:'站上 MA5',c:'tag-y'});}
-    else{maScore=0;tags.push({t:'空頭排列',c:'tag-r'});}
+  // 1.4 基底分結算
+  const baseScore=base_max>0?Math.round((base_raw/base_max)*100):50;
+  const isLowConfidence=base_max<40;
+  if(isLowConfidence) tags.push({t:'⚠️ 低信心',c:'tag-y'});
+
+  // 1.5 下跌速率修正因子
+  const lookbackDays=5;
+  let velocityMod=0, velocityLabel='';
+  const rsiPrev=(idx>=lookbackDays&&candles[idx-lookbackDays].rsi!=null)?candles[idx-lookbackDays].rsi:null;
+  if(rsiPrev!=null&&rsi!=null&&rsi<40){
+    const rsiDrop=rsiPrev-rsi;
+    const velocity=rsiDrop/lookbackDays;
+    if(velocity>=4){velocityMod=8;velocityLabel='💥 恐慌拋售';}
+    else if(velocity>=2){velocityMod=3;velocityLabel='⚔️ 快速下跌';}
+    else if(velocity>0){velocityMod=-5;velocityLabel='🐢 慢性陰跌';}
+    else{velocityLabel='⬆️ RSI 回升';}
   }
-  const total=rsiScore+macdScore+kdScore+maScore;
-  let signal,sigCls;
-  if(total>=70){signal='強力買進';sigCls='sig-buy';}
-  else if(total>=50){signal='偏多觀望';sigCls='sig-hold';}
-  else if(total>=30){signal='中性';sigCls='sig-na';}
-  else{signal='偏空警示';sigCls='sig-sell';}
+
+  // ═══ 第二階段：狀態仲裁 ═══
+  let state='NORMAL', modifier=0, multiplier=1.0;
+  // 計算衍生變數
+  let vma5=null;
+  if(idx>=4){let s=0,n=0;for(let i=idx-4;i<=idx;i++){if(candles[i].volume){s+=candles[i].volume;n++;}}if(n>0)vma5=s/n;}
+  const isRedK=c.close>c.open;
+  const isVolSurge=vma5&&c.volume>2*vma5;
+  const isVolDry=vma5&&c.volume<0.5*vma5;
+  const body=Math.abs(c.close-c.open);
+  const upShadow=c.high-Math.max(c.open,c.close);
+  const loShadow=Math.min(c.open,c.close)-c.low;
+  const shadowRatio=body===0?999:(upShadow+loShadow)/body;
+  // 支撐偵測 (近似：MA60/MA120/近20日低點)
+  let isAtSupport=false;
+  if(c.ma60&&Math.abs(c.close-c.ma60)/c.ma60<0.02) isAtSupport=true;
+  if(!isAtSupport&&c.ma120&&Math.abs(c.close-c.ma120)/c.ma120<0.02) isAtSupport=true;
+  if(!isAtSupport&&idx>=20){let ml=Infinity;for(let i=idx-20;i<idx;i++)ml=Math.min(ml,candles[i].low);if(c.low<=ml*1.01)isAtSupport=true;}
+  // RSI 底背離偵測
+  let hasDivergence=false;
+  if(rsi!=null&&rsi<=45&&idx>=10){
+    for(let i=Math.max(0,idx-20);i<idx-3;i++){
+      const ri=candles[i].rsi;if(ri==null||ri>45)continue;
+      const rb=i>0&&candles[i-1].rsi!=null?candles[i-1].rsi:999;
+      const ra=i<candles.length-1&&candles[i+1].rsi!=null?candles[i+1].rsi:999;
+      if(ri<=rb&&ri<=ra&&c.low<candles[i].low&&rsi>ri){hasDivergence=true;break;}
+    }
+  }
+  // VR 觸發 (用成交量異常作為 proxy)
+  const vrTriggered=isVolSurge||(vma5&&c.volume>1.5*vma5&&shadowRatio>1.5);
+
+  // 2-1: Engine B — Volcano (最高優先級)
+  if(vrTriggered){
+    if(isRedK&&isVolSurge&&c.ma20&&c.close>c.ma20){
+      state='VOLCANO_BUY';modifier=30;tags.push({t:'🔥 動能突破',c:'tag-g'});
+    }else if(!isRedK&&isVolSurge&&c.ma20&&c.close<c.ma20){
+      state='VOLCANO_SELLOFF';multiplier=0.4;tags.push({t:'⚠️ 爆量崩盤',c:'tag-r'});
+      if(isAtSupport&&hasDivergence&&rsi!=null&&rsi<=45){state='VOLCANO_WARNING';modifier=-10;multiplier=1.0;tags.pop();tags.push({t:'⚡ 崩盤+支撐覆蓋',c:'tag-y'});}
+    }else if(shadowRatio>1.5||(vma5&&c.volume<1.5*vma5)){
+      state='VOLCANO_WARNING';modifier=-10;tags.push({t:'⚡ 波動異常',c:'tag-y'});
+    }
+  }
+  // 2-2: Engine A — Sniper (可覆蓋 WARNING)
+  if(isAtSupport&&(state==='NORMAL'||state==='VOLCANO_WARNING')){
+    if(hasDivergence&&rsi!=null&&rsi<=45){state='SNIPER_DIVERGENCE';modifier=20;tags.push({t:'🎯 底背離',c:'tag-g'});}
+    else if(rsi!=null&&rsi<30&&isVolDry){state='SNIPER_OVERSOLD';modifier=10;tags.push({t:'📉 量縮超跌',c:'tag-g'});}
+    else{state='SNIPER_SUPPORT';modifier=5;tags.push({t:'🛡️ 支撐防守',c:'tag-b'});}
+  }
+  // 2-3: 常態極端值
+  if(state==='NORMAL'&&rsi!=null&&rsi>80){state='OVERBOUGHT_PENALTY';modifier=-15;tags.push({t:'🚨 高檔超買',c:'tag-r'});}
+
+  // ═══ 第三階段：最終分數 ═══
+  const sniperStates=['SNIPER_DIVERGENCE','SNIPER_OVERSOLD','SNIPER_SUPPORT'];
+  const effVMod=sniperStates.includes(state)?velocityMod:0;
+  if(effVMod!==0&&velocityLabel) tags.push({t:velocityLabel+' V'+effVMod.toFixed(0),c:effVMod>0?'tag-g':'tag-r'});
+  const rawFinal=Math.round(baseScore*multiplier)+modifier+effVMod;
+  const total=Math.max(0,Math.min(100,rawFinal));
+
+  // ═══ 第四階段：執行建議 ═══
+  const stateMap={
+    'VOLCANO_BUY':{lbl:'🔥 動能突破',act:'強烈買進',sig:'sig-buy'},
+    'VOLCANO_SELLOFF':{lbl:'⚠️ 爆量崩盤',act:'強制避開',sig:'sig-sell'},
+    'VOLCANO_WARNING':{lbl:'⚡ 波動異常',act:'觀望',sig:'sig-na'},
+    'SNIPER_DIVERGENCE':{lbl:'🎯 底背離',act:'準備建倉',sig:'sig-buy'},
+    'SNIPER_OVERSOLD':{lbl:'📉 量縮超跌',act:'試單建倉',sig:'sig-buy'},
+    'SNIPER_SUPPORT':{lbl:'🛡️ 支撐防守',act:'持股續抱',sig:'sig-hold'},
+    'OVERBOUGHT_PENALTY':{lbl:'🚨 高檔超買',act:'減碼停利',sig:'sig-sell'},
+    'NORMAL':{lbl:'📊 常態追蹤',act:total>=73?'加碼抱牢':total>=37?'維持部位':'減碼觀望',sig:total>=73?'sig-buy':total>=37?'sig-hold':'sig-sell'},
+  };
+  const sm=stateMap[state]||stateMap['NORMAL'];
+  const signal=sm.act, sigCls=sm.sig, stateLabel=sm.lbl;
 
   // 白話敘述
   const parts=[];
-  if(c.rsi!=null) parts.push(`RSI 為 <b>${c.rsi.toFixed(1)}</b>，${c.rsi<30?'處於超賣區，反彈機率高':c.rsi>70?'進入超買區，追高風險大':'中性區間'}`);
-  if(c.macdHistogram!=null) parts.push(`MACD 柱狀 ${c.macdHistogram>0?'<b>正值</b>，動能偏多':'<b>負值</b>，動能偏空'}`);
-  if(c.kdFast!=null) parts.push(`K 值 <b>${c.kdFast.toFixed(0)}</b>，D 值 <b>${c.kdSlow.toFixed(0)}</b>，${c.kdFast>c.kdSlow?'K>D 偏多':'K<D 偏空'}`);
+  parts.push(`基底分 <b>${baseScore}</b>（RSI/MACD/MA 常態體質）`);
+  parts.push(`狀態 <b>${stateLabel}</b>，Modifier=${modifier>0?'+':''}${modifier}，Multiplier=${multiplier}`);
+  if(effVMod!==0) parts.push(`下跌速率修正 <b>${velocityLabel}</b>：${effVMod>0?'+':''}${effVMod}`);
+  if(rsi!=null) parts.push(`RSI <b>${rsi.toFixed(1)}</b> ${rsi<30?'超賣區':rsi>70?'超買區':'中性'}`);
   const narr=parts.join('。')+'。';
 
-  return {total,rsi:rsiScore,macd:macdScore,kd:kdScore,ma:maScore,signal,sigCls,tags,narr};
+  return {total,baseScore,state,stateLabel,modifier,multiplier,velocityMod:effVMod,signal,sigCls,tags,narr,isLowConfidence,
+    isAtSupport,hasDivergence,velocityLabel};
 }
 
 function renderM3(m3){
@@ -228,21 +312,18 @@ function renderM3(m3){
   document.getElementById('m3Num').style.color=m3.total>=70?'#639922':m3.total>=40?'#854F0B':'#E24B4A';
   const sigEl=document.getElementById('m3Sig');
   sigEl.textContent=m3.signal; sigEl.className='m3-sig '+m3.sigCls;
+  document.getElementById('m3State').innerHTML=`${m3.stateLabel} <span style="opacity:0.6">Base ${m3.baseScore} × ${m3.multiplier} + ${m3.modifier>0?'+':''}${m3.modifier}${m3.velocityMod?(' V'+(m3.velocityMod>0?'+':'')+m3.velocityMod):''}</span>`;
 
-  const barColor=v=>v>=20?'#639922':v>=12?'#DAA520':'#E24B4A';
-  const barHint=v=>v>=20?'強勢':v>=12?'中性':'弱勢';
+  const barColor=v=>v>=70?'#639922':v>=40?'#DAA520':'#E24B4A';
   const items=[
-    {lbl:'RSI 動能',val:m3.rsi,max:25},
-    {lbl:'MACD 趨勢',val:m3.macd,max:25},
-    {lbl:'KD 擺盪',val:m3.kd,max:25},
-    {lbl:'均線排列',val:m3.ma,max:25},
+    {lbl:'基底分 (Base)',val:m3.baseScore,max:100},
+    {lbl:'最終分 (Final)',val:m3.total,max:100},
   ];
   document.getElementById('m3Bars').innerHTML=items.map(i=>`
     <div class="bar-row">
       <div class="bar-label">${i.lbl}</div>
-      <div class="bar-track"><div class="bar-fill" style="width:${i.val/i.max*100}%;background:${barColor(i.val)}"></div></div>
+      <div class="bar-track"><div class="bar-fill" style="width:${i.val}%;background:${barColor(i.val)}"></div></div>
       <div class="bar-val">${i.val}/${i.max}</div>
-      <div class="bar-hint">${barHint(i.val)}</div>
     </div>`).join('');
 
   document.getElementById('m3Tags').innerHTML=m3.tags.map(t=>`<span class="tag ${t.c}">${t.t}</span>`).join('');
@@ -264,8 +345,8 @@ async function doAnalysis(){
     const json=await res.json();
     if(!json.success) return showErr(json.error||'查詢失敗');
     chartData=json;
+    renderM3(calcM3(chartData.candles));
     const last=chartData.candles[chartData.candles.length-1];
-    renderM3(calcM3(last));
     renderStats(last);
     drawCandle();
     drawIndicators();

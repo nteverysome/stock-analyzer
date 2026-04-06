@@ -1,0 +1,93 @@
+=== 確認工作目錄檔案內容 ===
+  DEPLOY_FROM_ANY_COMPUTER.md: hasRealToken=false, hasPlaceholder=true
+  _push_now.js: hasRealToken=false, hasPlaceholder=true
+  _upload_final.js: hasRealToken=false, hasPlaceholder=true
+  push_simple.js: hasRealToken=false, hasPlaceholder=true
+
+=== 重新 add 這 4 個檔案（覆蓋 index 為佔位符版本）===
+>> git add DEPLOY_FROM_ANY_COMPUTER.md _push_now.js _upload_final.js push_simple.js
+
+=== 目前 status ===
+>> git status --short
+M  DEPLOY_FROM_ANY_COMPUTER.md
+M  _push_now.js
+M  _upload_final.js
+M  push_simple.js
+?? _fix2.cjs
+?? _push_fix.cjs
+?? push_result.txt
+
+=== Amend commit ===
+>> git commit --amend --no-edit
+[main b5e321b] Fix: Use minimal Vercel config to enable API routes
+ Date: Mon Apr 6 10:20:54 2026 +0800
+ 63 files changed, 7939 insertions(+), 17 deletions(-)
+ create mode 100644 ALL_HISTORY_MODE.md
+ create mode 100644 API_QUICK_REFERENCE.md
+ create mode 100644 API_ROUTES_FIXED.md
+ create mode 100644 BACKFILL_GUIDE.md
+ create mode 100644 BEGIN_NOW.txt
+ create mode 100644 CHECK_NETWORK.cmd
+ create mode 100644 CHECK_PROGRESS_NOW.txt
+ create mode 100644 CHECK_PROGRESS_QUICK.md
+ create mode 100644 CONNECTION_RESET_FIX.md
+ create mode 100644 CONTINUE_FETCH.md
+ create mode 100644 CONTINUE_NOW.md
+ create mode 100644 CORS_OPTIONS_FIX.md
+ create mode 100644 DEPLOY_FIX.md
+ create mode 100644 DEPLOY_FROM_ANY_COMPUTER.md
+ create mode 100644 EXECUTION_PLAN.md
+ create mode 100644 FETCH_MORE_DATA.txt
+ create mode 100644 FINAL_SUMMARY.md
+ create mode 100644 FIX_ENCODING.md
+ create mode 100644 FUNDAMENTALS_FIX.md
+ create mode 100644 GO_NOW.md
+ create mode 100644 LOCAL_SERVER_CORS_FIX.md
+ create mode 100644 MISSION_ACCOMPLISHED.md
+ create mode 100644 PHASE_COMPLETION_REPORT.md
+ create mode 100644 PROGRESS_TRACKER.md
+ create mode 100644 QUICKSTART.md
+ create mode 100644 QUICK_PROGRESS_CHECK.txt
+ create mode 100644 README_CHART_SYSTEM.md
+ create mode 100644 RETRY_CONNECTION.txt
+ create mode 100644 RETRY_NOW.txt
+ create mode 100644 RUN_NOW.ps1
+ create mode 100644 RUN_NOW.sh
+ create mode 100644 RUN_WITH_PROGRESS.md
+ create mode 100644 SOLUTION_SUMMARY.md
+ create mode 100644 START_DEV_SERVER.txt
+ create mode 100644 START_EXECUTION.md
+ create mode 100644 START_NOW.txt
+ create mode 100644 START_WITH_MOCK_DATA.txt
+ create mode 100644 START_WITH_REAL_PROGRESS.txt
+ create mode 100644 TROUBLESHOOT_STUCK.md
+ create mode 100644 VERIFY_DATA.md
+ create mode 100644 VERIFY_NOW.md
+ create mode 100644 _push_now.js
+ create mode 100644 _upload_final.js
+ create mode 100644 api/backtest.js
+ create mode 100644 api/chart-data.js
+ create mode 100644 api/health.js
+ create mode 100644 api/progress.js
+ create mode 100644 api/verify.js
+ create mode 100644 check-fundamentals-result.txt
+ create mode 100644 check-progress.ps1
+ create mode 100644 continue-fetch.ps1
+ create mode 100644 create-github-token-guide.txt
+ create mode 100644 package.json.new
+ create mode 100644 public/progress.html
+ create mode 100644 public/verify.html
+ create mode 100644 push-to-github-offline.ps1
+ create mode 100644 push_simple.js
+ create mode 100644 test-finmind-direct.js
+ create mode 100644 test-result.txt
+ create mode 100644 update-github-via-api.ps1
+
+=== 修復後 log ===
+>> git log --oneline -4
+b5e321b Fix: Use minimal Vercel config to enable API routes
+e59876e Fix: Use minimal Vercel config to enable API routes
+10e236b Fix: Configure Vercel to support Serverless Functions for API routes
+0419d13 fix: Update chart.html with new M3 design
+
+✅ 完成！接下來執行 force push
