@@ -372,18 +372,23 @@ a:hover{text-decoration:underline;}
           </div>
         </div>
 
-        <!-- 第2列：M2 估值 + 護城河 -->
+        <!-- 第2列：M2 估值（展開式框架） -->
         <div class="m3-col">
-          <div class="m3-group-t">💰 估值 & 護城河</div>
+          <div class="m3-group-t">💰 M2 估值</div>
           <div class="m3-row">
-            <input type="checkbox" id="m2s-ck" onchange="updateM3Filters()">
-            <label for="m2s-ck">M2 估值 ≥</label>
-            <input type="number" id="m2s-val" value="40" min="0" max="100" onchange="updateM3Filters()" onkeyup="updateM3Filters()" disabled>
+            <input type="checkbox" id="m2-peg-ck" onchange="updateM3Filters()">
+            <label for="m2-peg-ck">PEG ≤</label>
+            <input type="number" id="m2-peg-val" value="1.5" min="0" max="10" step="0.1" onchange="updateM3Filters()" onkeyup="updateM3Filters()" disabled>
           </div>
           <div class="m3-row">
-            <input type="checkbox" id="moat-ck" onchange="updateM3Filters()">
-            <label for="moat-ck">護城河 ≥</label>
-            <input type="number" id="moat-val" value="50" min="0" max="100" onchange="updateM3Filters()" onkeyup="updateM3Filters()" disabled>
+            <input type="checkbox" id="m2-gm-ck" onchange="updateM3Filters()">
+            <label for="m2-gm-ck">毛利 ≥</label>
+            <input type="number" id="m2-gm-val" value="30" min="0" max="100" onchange="updateM3Filters()" onkeyup="updateM3Filters()" disabled>%
+          </div>
+          <div class="m3-row">
+            <input type="checkbox" id="m2-upside-ck" onchange="updateM3Filters()">
+            <label for="m2-upside-ck">上行 ≥</label>
+            <input type="number" id="m2-upside-val" value="15" min="0" max="500" onchange="updateM3Filters()" onkeyup="updateM3Filters()" disabled>%
           </div>
         </div>
 
@@ -645,24 +650,32 @@ document.addEventListener('DOMContentLoaded', () => {
 let m3Filters = {
   m3sMin: 30, m3sEnabled: true,
   baseMin: 30, baseEnabled: false,
-  m2sMin: 40, m2sEnabled: false,
-  moatMin: 50, moatEnabled: false,
+  // M2 估值子指標
+  m2PegMax: 1.5, m2PegEnabled: false,
+  m2GmMin: 30, m2GmEnabled: false,
+  m2UpsideMin: 15, m2UpsideEnabled: false,
   states: []  // 選中的狀態
 };
 let m3SortKey = 'total';
 let lastScanResults = null;
 let lastScanMacro = null;
+let currentLiveM2 = null;  // 當前掃描結果的平均 M2
+let currentLiveMoat = null;  // 當前掃描結果的平均護城河
 
 function updateM3Filters() {
-  // 更新數字篩選
+  // 更新 M3 數字篩選
   m3Filters.m3sEnabled = document.getElementById('m3s-ck').checked;
   m3Filters.m3sMin = parseInt(document.getElementById('m3s-val').value) || 0;
   m3Filters.baseEnabled = document.getElementById('m3base-ck').checked;
   m3Filters.baseMin = parseInt(document.getElementById('m3base-val').value) || 0;
-  m3Filters.m2sEnabled = document.getElementById('m2s-ck').checked;
-  m3Filters.m2sMin = parseInt(document.getElementById('m2s-val').value) || 0;
-  m3Filters.moatEnabled = document.getElementById('moat-ck').checked;
-  m3Filters.moatMin = parseInt(document.getElementById('moat-val').value) || 0;
+
+  // 更新 M2 子指標篩選
+  m3Filters.m2PegEnabled = document.getElementById('m2-peg-ck').checked;
+  m3Filters.m2PegMax = parseFloat(document.getElementById('m2-peg-val').value) || 1.5;
+  m3Filters.m2GmEnabled = document.getElementById('m2-gm-ck').checked;
+  m3Filters.m2GmMin = parseInt(document.getElementById('m2-gm-val').value) || 30;
+  m3Filters.m2UpsideEnabled = document.getElementById('m2-upside-ck').checked;
+  m3Filters.m2UpsideMin = parseInt(document.getElementById('m2-upside-val').value) || 15;
 
   // 更新狀態篩選
   m3Filters.states = [];
@@ -684,8 +697,9 @@ function updateM3Filters() {
 
   // 啟用/停用相關輸入
   document.getElementById('m3base-val').disabled = !m3Filters.baseEnabled;
-  document.getElementById('m2s-val').disabled = !m3Filters.m2sEnabled;
-  document.getElementById('moat-val').disabled = !m3Filters.moatEnabled;
+  document.getElementById('m2-peg-val').disabled = !m3Filters.m2PegEnabled;
+  document.getElementById('m2-gm-val').disabled = !m3Filters.m2GmEnabled;
+  document.getElementById('m2-upside-val').disabled = !m3Filters.m2UpsideEnabled;
 
   if (lastScanResults) rerenderResults();
 }
@@ -705,10 +719,15 @@ function m3StateMatch(sc) {
 }
 
 function m3ScoreMatch(sc) {
+  // M3 篩選
   if (m3Filters.m3sEnabled && sc.m3s < m3Filters.m3sMin) return false;
   if (m3Filters.baseEnabled && (sc.m3BaseScore || 0) < m3Filters.baseMin) return false;
-  if (m3Filters.m2sEnabled && sc.m2s < m3Filters.m2sMin) return false;
-  if (m3Filters.moatEnabled && (sc.moat || 0) < m3Filters.moatMin) return false;
+
+  // M2 子指標篩選
+  if (m3Filters.m2PegEnabled && sc.peg != null && sc.peg > m3Filters.m2PegMax) return false;
+  if (m3Filters.m2GmEnabled && (sc.gm || 0) < m3Filters.m2GmMin) return false;
+  if (m3Filters.m2UpsideEnabled && (sc.upPct || 0) < m3Filters.m2UpsideMin) return false;
+
   return true;
 }
 function rerenderResults() {
@@ -729,8 +748,9 @@ function rerenderResults() {
   const filterParts = [];
   if (m3Filters.m3sEnabled) filterParts.push(`M3≥${m3Filters.m3sMin}`);
   if (m3Filters.baseEnabled) filterParts.push(`基≥${m3Filters.baseMin}`);
-  if (m3Filters.m2sEnabled) filterParts.push(`M2≥${m3Filters.m2sMin}`);
-  if (m3Filters.moatEnabled) filterParts.push(`護≥${m3Filters.moatMin}`);
+  if (m3Filters.m2PegEnabled) filterParts.push(`PEG≤${m3Filters.m2PegMax}`);
+  if (m3Filters.m2GmEnabled) filterParts.push(`毛利≥${m3Filters.m2GmMin}%`);
+  if (m3Filters.m2UpsideEnabled) filterParts.push(`上行≥${m3Filters.m2UpsideMin}%`);
   if (m3Filters.states.length > 0) filterParts.push(`${m3Filters.states.length}狀`);
   const filterLbl = filterParts.length > 0 ? `　篩選：${filterParts.join('·')}` : '';
   let html = `<p class="sec-t" style="margin-top:12px;">📊 掃描摘要 · ${mktLabel} · 排序：${sortLbl}${filterLbl} · 掃描 ${totalScanned} 支 · 顯示 ${opportunities.length + watchlist.length} 支</p>`;
