@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>進度檢查 — Stock Analyzer</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f4ef; color: #1a1a18; padding: 20px; }
+    .container { max-width: 600px; margin: 0 auto; }
+    h1 { font-size: 32px; margin-bottom: 30px; }
+    .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .progress-item { margin-bottom: 25px; }
+    .progress-label { font-size: 14px; color: #888; margin-bottom: 8px; display: flex; justify-content: space-between; }
+    .progress-bar { width: 100%; height: 12px; background: #e8e6df; border-radius: 6px; overflow: hidden; }
+    .progress-fill { height: 100%; background: #378ADD; transition: width 0.3s; }
+    .progress-percent { font-weight: 700; font-size: 16px; color: #378ADD; }
+    .progress-count { font-size: 13px; color: #888; }
+    .status { padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+    .status.complete { background: #f0fdf4; border-left: 4px solid #059669; }
+    .status.progress { background: #fffbeb; border-left: 4px solid #f59e0b; }
+    .status.pending { background: #fef2f2; border-left: 4px solid #dc2626; }
+    .status h3 { margin-bottom: 5px; }
+    .status p { font-size: 13px; color: #666; }
+    .time-range { background: #f9f9f9; padding: 12px; border-radius: 8px; font-size: 13px; color: #666; }
+    .time-range p { margin-bottom: 5px; }
+    .btn { padding: 10px 20px; background: #378ADD; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; margin-top: 10px; }
+    .btn:hover { background: #2563a0; }
+    .loading { text-align: center; padding: 40px; }
+    .spinner { display: inline-block; width: 30px; height: 30px; border: 3px solid #e8e6df; border-top-color: #378ADD; border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .timestamp { font-size: 12px; color: #888; margin-top: 20px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📊 補抓進度檢查</h1>
+    
+    <div id="loading" class="loading">
+      <div class="spinner"></div>
+      <p>正在查詢進度...</p>
+    </div>
+    
+    <div id="content" style="display: none;"></div>
+  </div>
+
+  <script>
+    async function checkProgress() {
+      try {
+        const res = await fetch('/api/progress');
+        const data = await res.json();
+
+        if (!data.success) {
+          throw new Error(data.error);
+        }
+
+        displayProgress(data);
+        setTimeout(checkProgress, 5000); // 每 5 秒刷新一次
+      } catch (err) {
+        document.getElementById('content').innerHTML = `<div class="card status pending"><h3>❌ 檢查失敗</h3><p>${err.message}</p></div>`;
+        setTimeout(checkProgress, 10000);
+      }
+    }
+
+    function displayProgress(data) {
+      const { progress, timeRange, status, estimates, timestamp } = data;
+      
+      const statusIcon = status.isComplete ? '✅' : (progress.prices.percent > 50 ? '⏳' : '❌');
+      const statusText = status.isComplete ? '完成' : (progress.prices.percent > 50 ? '進行中' : '未開始');
+      const statusClass = status.isComplete ? 'complete' : (progress.prices.percent > 50 ? 'progress' : 'pending');
+
+      let html = `
+        <div class="status ${statusClass}">
+          <h3>${statusIcon} 總體狀態：${statusText}</h3>
+          <p>最後更新：${new Date(timestamp).toLocaleString('zh-TW')}</p>
+        </div>
+
+        <div class="card">
+          <div class="progress-item">
+            <div class="progress-label">
+              <span>📥 價格記錄</span>
+              <span class="progress-percent">${progress.prices.percent}%</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" style="width: ${Math.min(progress.prices.percent, 100)}%"></div>
+            </div>
+            <div class="progress-count" style="margin-top: 5px;">
+              ${progress.prices.display}
+            </div>
+            <div style="margin-top: 5px; color: #666; font-size: 12px;">
+              ${estimates.pricesETA}
+            </div>
+          </div>
+
+          <div class="progress-item">
+            <div class="progress-label">
+              <span>📈 技術指標</span>
+              <span class="progress-percent">${progress.indicators.percent}%</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" style="width: ${Math.min(progress.indicators.percent, 100)}%"></div>
+            </div>
+            <div class="progress-count" style="margin-top: 5px;">
+              ${progress.indicators.display}
+            </div>
+            <div style="margin-top: 5px; color: #666; font-size: 12px;">
+              ${estimates.indicatorsETA}
+            </div>
+          </div>
+
+          <div class="progress-item">
+            <div class="progress-label">
+              <span>📍 股票覆蓋</span>
+              <span class="progress-percent">${progress.stocks.percent}%</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" style="width: ${Math.min(progress.stocks.percent, 100)}%"></div>
+            </div>
+            <div class="progress-count" style="margin-top: 5px;">
+              ${progress.stocks.display}
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>📅 時間範圍</h3>
+          <div class="time-range">
+            <p><strong>最早日期：</strong> ${timeRange.earliest}</p>
+            <p><strong>最新日期：</strong> ${timeRange.latest}</p>
+            <p><strong>交易日數：</strong> ${timeRange.tradingDays} 天</p>
+          </div>
+        </div>
+
+        ${status.isComplete ? `
+          <div class="card status complete">
+            <h3>✅ 補抓完成！</h3>
+            <p>所有數據已補抓完整，可以開始測試：</p>
+            <button class="btn" onclick="location.href='/chart.html'">📈 訪問 K 線圖</button>
+          </div>
+        ` : `
+          <div class="card">
+            <h3>📋 下一步</h3>
+            <p>補抓還在進行中，請耐心等待...</p>
+            <button class="btn" onclick="location.reload()">🔄 刷新</button>
+          </div>
+        `}
+
+        <div class="timestamp">
+          自動刷新中 (每 5 秒更新一次)
+        </div>
+      `;
+
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('content').style.display = 'block';
+      document.getElementById('content').innerHTML = html;
+    }
+
+    // 頁面加載時檢查進度
+    checkProgress();
+  </script>
+</body>
+</html>

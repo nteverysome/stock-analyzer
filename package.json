@@ -24,9 +24,14 @@
     "url": "https://github.com/nteverysome/stock-analyzer.git"
   },
   "type": "module",
+
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",
+    "axios": "^1.14.0",
     "dotenv": "^17.4.0",
-    "node-fetch": "^3.3.2"
+    "node-fetch": "^3.3.2",
+    "tweetsodium": "^0.0.4",
+    "undici": "^7.24.7",
+    "ws": "^8.20.0"
   }
 }

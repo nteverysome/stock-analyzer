@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>數據驗證 — Stock Analyzer</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f4ef; color: #1a1a18; padding: 20px; }
+    .container { max-width: 800px; margin: 0 auto; }
+    h1 { font-size: 28px; margin-bottom: 20px; }
+    .btn { padding: 12px 24px; background: #378ADD; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 16px; }
+    .btn:hover { background: #2563a0; }
+    .loading { text-align: center; padding: 40px; }
+    .spinner { border: 4px solid #e8e6df; border-top-color: #378ADD; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 10px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .result { background: white; border-radius: 10px; padding: 30px; margin-top: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 20px; }
+    .stat { background: #f9f9f9; padding: 15px; border-radius: 8px; border-left: 4px solid #378ADD; }
+    .stat-label { font-size: 12px; color: #888; margin-bottom: 5px; }
+    .stat-value { font-size: 24px; font-weight: 700; }
+    .stat-unit { font-size: 12px; color: #888; }
+    .stat-status { margin-top: 5px; font-size: 14px; }
+    .status-complete { color: #059669; }
+    .status-progress { color: #f59e0b; }
+    .status-error { color: #dc2626; }
+    .progress-bar { width: 100%; height: 8px; background: #e8e6df; border-radius: 4px; margin: 10px 0; overflow: hidden; }
+    .progress-fill { height: 100%; background: #378ADD; transition: width 0.3s; }
+    .summary { padding: 15px; background: #f0f9ff; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #378ADD; }
+    .summary h3 { margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📊 數據補抓驗證</h1>
+    
+    <button class="btn" onclick="verifyData()">🔍 開始驗證</button>
+    
+    <div id="loading" style="display: none;">
+      <div class="loading">
+        <div class="spinner"></div>
+        <p>正在檢查數據庫...</p>
+      </div>
+    </div>
+    
+    <div id="result"></div>
+  </div>
+
+  <script>
+    async function verifyData() {
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('result').innerHTML = '';
+
+      try {
+        const res = await fetch('/api/verify');
+        const data = await res.json();
+
+        if (!data.success) {
+          throw new Error(data.error);
+        }
+
+        displayResults(data);
+      } catch (err) {
+        document.getElementById('result').innerHTML = `<div class="result" style="border-left: 4px solid #dc2626;"><p style="color: #dc2626;">❌ 驗證失敗: ${err.message}</p></div>`;
+      } finally {
+        document.getElementById('loading').style.display = 'none';
+      }
+    }
+
+    function displayResults(data) {
+      const { summary, prices, indicators, coverage, timeRange, avgRecords, sample2330 } = data;
+      const statusClass = summary.status.includes('完成') ? 'status-complete' : (summary.status.includes('進行') ? 'status-progress' : 'status-error');
+
+      let html = `
+        <div class="result">
+          <div class="summary">
+            <h3>${summary.status}</h3>
+            <div style="display: flex; gap: 30px; margin-top: 10px;">
+              <div>
+                <div class="stat-label">價格進度</div>
+                <div class="progress-bar"><div class="progress-fill" style="width: ${summary.progress.prices}%"></div></div>
+                <div class="stat-label">${summary.progress.prices}%</div>
+              </div>
+              <div>
+                <div class="stat-label">指標進度</div>
+                <div class="progress-bar"><div class="progress-fill" style="width: ${summary.progress.indicators}%"></div></div>
+                <div class="stat-label">${summary.progress.indicators}%</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="stat-grid">
+            <div class="stat">
+              <div class="stat-label">價格記錄</div>
+              <div class="stat-value">${(prices.count / 1000000).toFixed(1)}</div>
+              <div class="stat-unit">百萬筆</div>
+              <div class="stat-status">${prices.status} (預期: ${prices.expected})</div>
+            </div>
+
+            <div class="stat">
+              <div class="stat-label">技術指標</div>
+              <div class="stat-value">${(indicators.count / 1000000).toFixed(1)}</div>
+              <div class="stat-unit">百萬筆</div>
+              <div class="stat-status">${indicators.status} (預期: ${indicators.expected})</div>
+            </div>
+
+            <div class="stat">
+              <div class="stat-label">股票覆蓋</div>
+              <div class="stat-value">${coverage.count}</div>
+              <div class="stat-unit">支 / ${coverage.expected} 支</div>
+              <div class="stat-status">${coverage.status} (${coverage.percent}%)</div>
+            </div>
+
+            <div class="stat">
+              <div class="stat-label">平均記錄數</div>
+              <div class="stat-value">${avgRecords.avg.toLocaleString()}</div>
+              <div class="stat-unit">筆/股</div>
+              <div class="stat-status">${avgRecords.status} (範圍: ${avgRecords.min} ~ ${avgRecords.max})</div>
+            </div>
+
+            <div class="stat">
+              <div class="stat-label">交易日範圍</div>
+              <div class="stat-value">${timeRange.tradingDays}</div>
+              <div class="stat-unit">天</div>
+              <div class="stat-status">${timeRange.status} (${timeRange.earliest} ~ ${timeRange.latest})</div>
+            </div>
+
+            <div class="stat">
+              <div class="stat-label">樣本 (2330)</div>
+              <div class="stat-value">${sample2330.priceCount.toLocaleString()}</div>
+              <div class="stat-unit">筆</div>
+              <div class="stat-status">${sample2330.status} (${sample2330.earliest} ~ ${sample2330.latest})</div>
+            </div>
+          </div>
+
+          <div style="margin-top: 20px; padding: 15px; background: #f0fdf4; border-radius: 8px; border-left: 4px solid #059669;">
+            <h3 style="color: #059669; margin-bottom: 10px;">✅ 驗證結論</h3>
+            ${summary.isComplete ? 
+              `<p>✅ 數據補抓和指標計算已完成！可以開始本地測試：</p>
+               <code style="background: #fff; padding: 10px; border-radius: 4px; display: block; margin-top: 10px;">npx vercel dev</code>
+               <p style="margin-top: 10px;">然後訪問：<a href="/chart.html" target="_blank">/chart.html</a></p>` :
+              (prices.count > 100000 ? 
+                `<p>⏳ 補抓和計算正在進行中</p>
+                 <p style="margin-top: 10px;">已完成約 ${(Math.max(summary.progress.prices, summary.progress.indicators)).toFixed(1)}%</p>
+                 <p style="margin-top: 10px;">請稍候或稍後再檢查</p>` :
+                `<p>❌ 數據補抓未開始或未完成</p>
+                 <p style="margin-top: 10px;">請確認補抓腳本是否正在執行</p>`)
+            }
+          </div>
+        </div>
+      `;
+
+      document.getElementById('result').innerHTML = html;
+    }
+
+    // 頁面載入時自動驗證
+    verifyData();
+  </script>
+</body>
+</html>

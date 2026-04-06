@@ -1,0 +1,26 @@
+{
+  "name": "stock-analyzer",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "check-progress": "node check-progress-simple.mjs",
+    "fetch-history": "node scripts/fetch-5years-history.mjs",
+    "calculate-indicators": "node scripts/backfill-tw-indicators.mjs --history-full",
+    "verify": "node scripts/verify-data.mjs"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.9.4",
+    "dotenv": "^16.3.1",
+    "node-fetch": "^3.3.2",
+    "next": "^14.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.50.0",
+    "eslint-config-next": "^14.0.0"
+  }
+}

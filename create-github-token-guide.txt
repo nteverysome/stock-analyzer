@@ -1,0 +1,35 @@
+🔐 如何快速建立 GitHub Personal Access Token
+
+步驟 1️⃣ : 打開瀏覽器進入
+https://github.com/settings/tokens/new
+
+步驟 2️⃣ : 填寫表單
+- Token name: "Stock Analyzer Deploy"
+- Expiration: "7 days" (或你想要的期限)
+- Select scopes: 只勾選 "repo" (完整存取倉庫)
+
+步驟 3️⃣ : 點 "Generate token"
+
+步驟 4️⃣ : 複製 token（很重要！只顯示一次）
+
+步驟 5️⃣ : 在 PowerShell 執行
+cd c:\Users\Administrator\Desktop\sotke4
+node deploy-to-github.mjs <你剛複製的token>
+
+範例:
+node deploy-to-github.mjs ghp_1234567890abcdefghijklmnopqrstuvwxyz
+
+就完成了！Vercel 會自動重新部署。
+
+---
+
+✅ 完成後會看到:
+✅ api/chart-data.js 更新成功
+✅ api/backtest.js 更新成功
+✅ api/health.js 更新成功
+✅ public/chart.html 更新成功
+
+完成 4/4 個檔案
+
+⏳ Vercel 將在 60 秒內自動重新部署...
+🌐 訪問: https://stock-analyzer-qfks.vercel.app/chart.html

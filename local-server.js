@@ -1,22 +1,188 @@
 // 本地開發伺服器 - 支援 /api/claude 路由
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
-const { URL } = require('url');
+import http from 'http';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { URL } from 'url';
+
+import { neon } from '@neondatabase/serverless';
+import dotenv from 'dotenv';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+dotenv.config({ path: '.env.local' });
 
 const PORT = 8080;
 const ROOT_DIR = __dirname;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
-const server = http.createServer(async (req, res) => {
-  // 啟用 CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+// 發送 JSON 回應的工具函數
+function sendJSON(res, statusCode, data) {
+  const body = JSON.stringify(data);
+  res.writeHead(statusCode, {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+  });
+  res.end(body);
+}
 
-  if (req.method === 'OPTIONS') {
-    res.writeHead(200);
-    res.end();
+// 直接處理 /api/chart-data
+async function handleChartData(req, res) {
+  const url = new URL(req.url, `http://localhost`);
+  const symbol = url.searchParams.get('symbol');
+  const start_date = url.searchParams.get('start_date');
+  const end_date = url.searchParams.get('end_date');
+
+  if (!symbol) return sendJSON(res, 400, { error: 'symbol required' });
+  if (!process.env.DATABASE_URL) return sendJSON(res, 500, { error: 'DATABASE_URL not configured' });
+
+  const sql = neon(process.env.DATABASE_URL);
+
+  let rows;
+  if (start_date && end_date) {
+    rows = await sql`
+      SELECT p.symbol, p.price_date, p.open, p.high, p.low, p.close, p.volume,
+             i.rsi, i.kd_fast, i.kd_slow, i.macd, i.macd_signal, i.macd_histogram,
+             i.m1 AS ma5, i.m2 AS ma10, i.m3 AS ma20, i.m4 AS ma60, i.m5 AS ma120
+      FROM tw_daily_prices p
+      LEFT JOIN tw_indicators i ON p.symbol = i.symbol AND p.price_date = i.indicator_date
+      WHERE p.symbol = ${symbol} AND p.price_date >= ${start_date} AND p.price_date <= ${end_date}
+      ORDER BY p.price_date ASC
+    `;
+  } else if (start_date) {
+    rows = await sql`
+      SELECT p.symbol, p.price_date, p.open, p.high, p.low, p.close, p.volume,
+             i.rsi, i.kd_fast, i.kd_slow, i.macd, i.macd_signal, i.macd_histogram,
+             i.m1 AS ma5, i.m2 AS ma10, i.m3 AS ma20, i.m4 AS ma60, i.m5 AS ma120
+      FROM tw_daily_prices p
+      LEFT JOIN tw_indicators i ON p.symbol = i.symbol AND p.price_date = i.indicator_date
+      WHERE p.symbol = ${symbol} AND p.price_date >= ${start_date}
+      ORDER BY p.price_date ASC
+    `;
+  } else if (end_date) {
+    rows = await sql`
+      SELECT p.symbol, p.price_date, p.open, p.high, p.low, p.close, p.volume,
+             i.rsi, i.kd_fast, i.kd_slow, i.macd, i.macd_signal, i.macd_histogram,
+             i.m1 AS ma5, i.m2 AS ma10, i.m3 AS ma20, i.m4 AS ma60, i.m5 AS ma120
+      FROM tw_daily_prices p
+      LEFT JOIN tw_indicators i ON p.symbol = i.symbol AND p.price_date = i.indicator_date
+      WHERE p.symbol = ${symbol} AND p.price_date <= ${end_date}
+      ORDER BY p.price_date ASC
+    `;
+  } else {
+    rows = await sql`
+      SELECT p.symbol, p.price_date, p.open, p.high, p.low, p.close, p.volume,
+             i.rsi, i.kd_fast, i.kd_slow, i.macd, i.macd_signal, i.macd_histogram,
+             i.m1 AS ma5, i.m2 AS ma10, i.m3 AS ma20, i.m4 AS ma60, i.m5 AS ma120
+      FROM tw_daily_prices p
+      LEFT JOIN tw_indicators i ON p.symbol = i.symbol AND p.price_date = i.indicator_date
+      WHERE p.symbol = ${symbol}
+      ORDER BY p.price_date ASC
+    `;
+  }
+
+  const candles = rows.map(r => ({
+    date: r.price_date,
+    open: parseFloat(r.open),  high: parseFloat(r.high),
+    low:  parseFloat(r.low),   close: parseFloat(r.close),
+    volume: parseInt(r.volume),
+    rsi: r.rsi != null ? parseFloat(r.rsi) : null,
+    kdFast: r.kd_fast != null ? parseFloat(r.kd_fast) : null,
+    kdSlow: r.kd_slow != null ? parseFloat(r.kd_slow) : null,
+    macd: r.macd != null ? parseFloat(r.macd) : null,
+    macdSignal: r.macd_signal != null ? parseFloat(r.macd_signal) : null,
+    macdHistogram: r.macd_histogram != null ? parseFloat(r.macd_histogram) : null,
+    ma5: r.ma5 != null ? parseFloat(r.ma5) : null,
+    ma10: r.ma10 != null ? parseFloat(r.ma10) : null,
+    ma20: r.ma20 != null ? parseFloat(r.ma20) : null,
+    ma60: r.ma60 != null ? parseFloat(r.ma60) : null,
+    ma120: r.ma120 != null ? parseFloat(r.ma120) : null,
+  }));
+  sendJSON(res, 200, { success: true, symbol, count: candles.length, candles });
+}
+
+// 直接處理 /api/backtest
+async function handleBacktest(req, res) {
+  const url = new URL(req.url, `http://localhost`);
+  const symbol = url.searchParams.get('symbol');
+  const start_date = url.searchParams.get('start_date');
+  const end_date = url.searchParams.get('end_date');
+
+  if (!symbol) return sendJSON(res, 400, { error: 'symbol required' });
+  if (!process.env.DATABASE_URL) return sendJSON(res, 500, { error: 'DATABASE_URL not configured' });
+
+  const sql = neon(process.env.DATABASE_URL);
+
+  let rows;
+  if (start_date && end_date) {
+    rows = await sql`
+      SELECT p.price_date, p.close,
+             i.rsi, i.kd_fast, i.kd_slow, i.macd, i.macd_signal,
+             i.m1 AS ma5, i.m3 AS ma20
+      FROM tw_daily_prices p
+      LEFT JOIN tw_indicators i ON p.symbol = i.symbol AND p.price_date = i.indicator_date
+      WHERE p.symbol = ${symbol} AND p.price_date >= ${start_date} AND p.price_date <= ${end_date}
+      ORDER BY p.price_date ASC
+    `;
+  } else if (start_date) {
+    rows = await sql`
+      SELECT p.price_date, p.close,
+             i.rsi, i.kd_fast, i.kd_slow, i.macd, i.macd_signal,
+             i.m1 AS ma5, i.m3 AS ma20
+      FROM tw_daily_prices p
+      LEFT JOIN tw_indicators i ON p.symbol = i.symbol AND p.price_date = i.indicator_date
+      WHERE p.symbol = ${symbol} AND p.price_date >= ${start_date}
+      ORDER BY p.price_date ASC
+    `;
+  } else if (end_date) {
+    rows = await sql`
+      SELECT p.price_date, p.close,
+             i.rsi, i.kd_fast, i.kd_slow, i.macd, i.macd_signal,
+             i.m1 AS ma5, i.m3 AS ma20
+      FROM tw_daily_prices p
+      LEFT JOIN tw_indicators i ON p.symbol = i.symbol AND p.price_date = i.indicator_date
+      WHERE p.symbol = ${symbol} AND p.price_date <= ${end_date}
+      ORDER BY p.price_date ASC
+    `;
+  } else {
+    rows = await sql`
+      SELECT p.price_date, p.close,
+             i.rsi, i.kd_fast, i.kd_slow, i.macd, i.macd_signal,
+             i.m1 AS ma5, i.m3 AS ma20
+      FROM tw_daily_prices p
+      LEFT JOIN tw_indicators i ON p.symbol = i.symbol AND p.price_date = i.indicator_date
+      WHERE p.symbol = ${symbol}
+      ORDER BY p.price_date ASC
+    `;
+  }
+
+  sendJSON(res, 200, { success: true, symbol, count: rows.length, rows });
+}
+
+const server = http.createServer(async (req, res) => {
+  // 每個請求都打印日誌（確認版本）
+  console.log(`[v3] ${req.method} ${req.url}`);
+
+  // /api/chart-data 路由
+  if (req.url.startsWith('/api/chart-data')) {
+    try {
+      await handleChartData(req, res);
+    } catch (err) {
+      console.error('❌ /api/chart-data 錯誤:', err.message);
+      sendJSON(res, 500, { error: err.message });
+    }
+    return;
+  }
+
+  // /api/backtest 路由
+  if (req.url.startsWith('/api/backtest')) {
+    try {
+      await handleBacktest(req, res);
+    } catch (err) {
+      console.error('❌ /api/backtest 錯誤:', err.message);
+      sendJSON(res, 500, { error: err.message });
+    }
     return;
   }
 
@@ -108,8 +274,10 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`🚀 本地開發伺服器運行在 http://localhost:${PORT}`);
-  console.log(`✅ 支援 /api/claude 路由（Claude API 代理）`);
-  console.log(`📂 靜態文件目錄：${PUBLIC_DIR}`);
+  console.log(`====================================`);
+  console.log(`🚀 [v3] 伺服器啟動 http://localhost:${PORT}`);
+  console.log(`✅ /api/chart-data → 直接查詢數據庫`);
+  console.log(`✅ /api/backtest → 直接查詢數據庫`);
+  console.log(`====================================`);
 });
 
